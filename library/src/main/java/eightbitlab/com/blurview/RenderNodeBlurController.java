@@ -10,6 +10,7 @@ import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.util.Log;
+import android.view.View;
 import android.view.ViewTreeObserver;
 
 import androidx.annotation.NonNull;
@@ -23,7 +24,7 @@ public class RenderNodeBlurController implements BlurController {
     private final int[] targetLocation = new int[2];
     private final int[] blurViewLocation = new int[2];
 
-    private final BlurView blurView;
+    private final View blurView;
     private final BlurTarget target;
     private final RenderNode blurNode = new RenderNode("BlurView node");
     private final float scaleFactor;
@@ -47,7 +48,7 @@ public class RenderNodeBlurController implements BlurController {
         return true;
     };
 
-    public RenderNodeBlurController(@NonNull BlurView blurView, @NonNull BlurTarget target, int overlayColor, float scaleFactor, boolean applyNoise) {
+    public RenderNodeBlurController(@NonNull View blurView, @NonNull BlurTarget target, int overlayColor, float scaleFactor, boolean applyNoise) {
         this.blurView = blurView;
         this.overlayColor = overlayColor;
         this.target = target;

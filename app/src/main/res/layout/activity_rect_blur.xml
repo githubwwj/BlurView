@@ -53,7 +53,7 @@
 
     </eightbitlab.com.blurview.BlurTarget>
 
-    <com.appxy.views.BlurOverlayView
+    <eightbitlab.com.blurview.BlurOverlayView
         android:id="@+id/blurOverlayView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

@@ -1,5 +1,8 @@
-package com.appxy.views;
+package eightbitlab.com.blurview;
 
+import static eightbitlab.com.blurview.BlurController.DEFAULT_SCALE_FACTOR;
+
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -9,8 +12,12 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+
+import androidx.annotation.ColorInt;
+import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +36,6 @@ public class BlurOverlayView extends View {
     private static final int MODE_NONE = 0;
     private static final int MODE_MOVE = 1;
     private static final int MODE_ROTATE = 2;
-    //    private static final int MODE_ADD_BY_CLICK = 3;
     private static final int MODE_ADD_BY_DRAG = 4;
     private static final int MODE_RESIZE = 5;
     private static final int MODE_DELETED = 6;
@@ -49,6 +55,12 @@ public class BlurOverlayView extends View {
     private Bitmap deleteIcon;
     private Bitmap rotateIcon;
     private final Paint previewPaint = new Paint();
+
+
+    private BlurController blurController = new NoOpController();
+    @ColorInt
+    private int overlayColor;
+    private boolean blurAutoUpdate = true;
 
     public BlurOverlayView(Context context) {
         super(context);
@@ -77,11 +89,114 @@ public class BlurOverlayView extends View {
         setLayerType(LAYER_TYPE_HARDWARE, null);
     }
 
+
+    // ------------------------设置模糊图层的代码------------
+    public BlurViewFacade setupWith(@NonNull BlurTarget target, BlurAlgorithm algorithm, float scaleFactor, boolean applyNoise) {
+        blurController.destroy();
+        if (BlurTarget.canUseHardwareRendering) {
+            // Ignores the blur algorithm, always uses RenderEffect
+            blurController = new RenderNodeBlurController(this, target, overlayColor, scaleFactor, applyNoise);
+        } else {
+            blurController = new BlurRectController(this, target, overlayColor, algorithm, scaleFactor, applyNoise);
+        }
+
+        return blurController;
+    }
+
+    public BlurViewFacade setupWith(@NonNull BlurTarget rootView, float scaleFactor, boolean applyNoise) {
+        BlurAlgorithm algorithm;
+        if (BlurTarget.canUseHardwareRendering) {
+            // Ignores the blur algorithm, always uses RenderNodeBlurController and RenderEffect
+            algorithm = null;
+        } else {
+            algorithm = new RenderScriptBlur(getContext());
+        }
+        return setupWith(rootView, algorithm, scaleFactor, applyNoise);
+    }
+
+    public BlurViewFacade setupWith(@NonNull BlurTarget rootView) {
+        return setupWith(rootView, DEFAULT_SCALE_FACTOR, true);
+    }
+
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        blurController.setBlurAutoUpdate(false);
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (!isHardwareAccelerated()) {
+            Log.e("BlurView", "BlurView can't be used in not hardware-accelerated window!");
+        } else {
+            blurController.setBlurAutoUpdate(this.blurAutoUpdate);
+        }
+    }
+
+    public BlurViewFacade setBlurRadius(float radius) {
+        return blurController.setBlurRadius(radius);
+    }
+
+    /**
+     * @see BlurViewFacade#setOverlayColor(int)
+     */
+    public BlurViewFacade setOverlayColor(@ColorInt int overlayColor) {
+        this.overlayColor = overlayColor;
+        return blurController.setOverlayColor(overlayColor);
+    }
+
+    /**
+     * @see BlurViewFacade#setBlurAutoUpdate(boolean)
+     */
+    public BlurViewFacade setBlurAutoUpdate(boolean enabled) {
+        this.blurAutoUpdate = enabled;
+        return blurController.setBlurAutoUpdate(enabled);
+    }
+
+    public BlurViewFacade setBlurEnabled(boolean enabled) {
+        return blurController.setBlurEnabled(enabled);
+    }
+
+    @Override
+    public void setRotation(float rotation) {
+        super.setRotation(rotation);
+        notifyRotationChanged(rotation);
+    }
+
+    @SuppressLint("NewApi")
+    public void notifyRotationChanged(float rotation) {
+        if (usingRenderNode()) {
+            ((RenderNodeBlurController) blurController).updateRotation(rotation);
+        }
+    }
+
+    @SuppressLint("NewApi")
+    public void notifyScaleXChanged(float scaleX) {
+        if (usingRenderNode()) {
+            ((RenderNodeBlurController) blurController).updateScaleX(scaleX);
+        }
+    }
+
+    @SuppressLint("NewApi")
+    public void notifyScaleYChanged(float scaleY) {
+        if (usingRenderNode()) {
+            ((RenderNodeBlurController) blurController).updateScaleY(scaleY);
+        }
+    }
+
+    private boolean usingRenderNode() {
+        return blurController instanceof RenderNodeBlurController;
+    }
+    // ------------------------设置模糊图层的代码------------
+
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         // 设置边框矩形（留出边距）
         borderRect.set(0, 0, w, h);
+        blurController.updateBlurViewSize();
     }
 
     @Override
@@ -121,7 +236,7 @@ public class BlurOverlayView extends View {
         previewPaint.setColor(Color.WHITE);
         previewPaint.setTextSize(28);
 
-        String sizeText = String.format(Locale.getDefault(),"%.0f×%.0f", dragRect.width(), dragRect.height());
+        String sizeText = String.format(Locale.getDefault(), "%.0f×%.0f", dragRect.width(), dragRect.height());
         float textWidth = previewPaint.measureText(sizeText);
 
         canvas.drawText(sizeText,
@@ -311,6 +426,7 @@ public class BlurOverlayView extends View {
         rect.constrainToBounds(borderRect); // 确保在边界内
         blurRectList.add(rect);
         selectedRect = rect;
+        blurController.addBlurRect(rect);
     }
 
     // 复制选中矩形
@@ -387,7 +503,7 @@ public class BlurOverlayView extends View {
     }
 
     // 模糊矩形类
-    private class BlurRect {
+    public class BlurRect {
         RectF rect;
         float rotation = 0;
         Paint blurPaint;
@@ -447,7 +563,7 @@ public class BlurOverlayView extends View {
         private void initPaint() {
             // 模糊效果
             blurPaint = new Paint();
-            blurPaint.setColor(Color.argb(200, 45, 55, 72)); // 深蓝色半透明
+            blurPaint.setColor(Color.argb(55, 45, 55, 72)); // 深蓝色半透明
             blurPaint.setStyle(Paint.Style.FILL);
             blurPaint.setAntiAlias(true);
 
@@ -577,6 +693,8 @@ public class BlurOverlayView extends View {
 
             // 绘制模糊矩形
             canvas.drawRect(rect, blurPaint);
+
+            blurController.draw(canvas);
 
             // 绘制选中状态
             if (isSelected) {

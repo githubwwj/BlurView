@@ -38,4 +38,8 @@ public interface BlurAlgorithm {
     Bitmap.Config getSupportedBitmapConfig();
 
     void render(@NonNull Canvas canvas, @NonNull Bitmap bitmap);
+
+    void render(@NonNull Canvas canvas, @NonNull Bitmap bitmap, BlurOverlayView.BlurRect blurRect);
+
+
 }

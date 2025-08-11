@@ -20,7 +20,7 @@ public class BlurTarget extends FrameLayout {
     // Need both RenderNode (API 29) and RenderEffect (API 31) to be available for a full hardware rendering pipeline
     // Android 12 开始弃用 RenderScript
 //    static final boolean canUseHardwareRendering = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
-    static final boolean canUseHardwareRendering = false;
+    public static final boolean canUseHardwareRendering = false;
 
     RenderNode renderNode;
 

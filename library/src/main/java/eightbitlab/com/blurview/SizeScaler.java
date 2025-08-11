@@ -33,7 +33,7 @@ public class SizeScaler {
         this.noStrideAlignment = noStrideAlignment;
     }
 
-    Size scale(int width, int height) {
+    Size scale(float width, float height) {
         // 计算未四舍五入的缩放后宽度
         int nonRoundedScaledWidth = downscaleSize(width);
 
@@ -41,7 +41,7 @@ public class SizeScaler {
         int scaledWidth = roundSize(nonRoundedScaledWidth);
 
         // 计算实际使用的缩放因子（因为宽度可能被调整了）
-        float roundingScaleFactor = (float) width / scaledWidth;
+        float roundingScaleFactor = width / scaledWidth;
 
         // 根据实际缩放因子计算高度（向上取整）
         int scaledHeight = (int) Math.ceil(height / roundingScaleFactor);
@@ -55,7 +55,7 @@ public class SizeScaler {
     /**
      * 检查缩放后尺寸是否为零,避免创建无效位图
      */
-    boolean isZeroSized(int measuredWidth, int measuredHeight) {
+    boolean isZeroSized(float measuredWidth, float measuredHeight) {
         return downscaleSize(measuredHeight) == 0 || downscaleSize(measuredWidth) == 0;
     }
 

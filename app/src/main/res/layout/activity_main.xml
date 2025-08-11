@@ -23,7 +23,7 @@
         android:id="@+id/topBlurView"
         android:layout_width="match_parent"
         android:layout_height="400dp"
-        android:layout_marginHorizontal="22dp"
+        android:layout_marginHorizontal="26dp"
         android:background="@drawable/rounded"
         android:elevation="16dp"
         app:blurOverlayColor="@color/colorOverlay">
@@ -47,6 +47,7 @@
                 android:padding="8dp" />
 
         </LinearLayout>
+
     </eightbitlab.com.blurview.BlurView>
 
     <eightbitlab.com.blurview.BlurView
