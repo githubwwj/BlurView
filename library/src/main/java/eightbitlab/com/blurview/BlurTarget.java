@@ -18,7 +18,9 @@ import androidx.annotation.RequiresApi;
  */
 public class BlurTarget extends FrameLayout {
     // Need both RenderNode (API 29) and RenderEffect (API 31) to be available for a full hardware rendering pipeline
-    static final boolean canUseHardwareRendering = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
+    // Android 12 开始弃用 RenderScript
+//    static final boolean canUseHardwareRendering = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
+    static final boolean canUseHardwareRendering = false;
 
     RenderNode renderNode;
 
@@ -40,7 +42,6 @@ public class BlurTarget extends FrameLayout {
         super(context, attrs, defStyleAttr);
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public BlurTarget(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
     }

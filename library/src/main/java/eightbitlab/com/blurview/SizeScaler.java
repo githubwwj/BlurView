@@ -3,16 +3,25 @@ package eightbitlab.com.blurview;
 import java.util.Objects;
 
 /**
- * Scales width and height by [scaleFactor],
- * and then rounds the size proportionally so the width is divisible by [ROUNDING_VALUE]
+ * 按比例因子缩放宽高
  */
 public class SizeScaler {
 
     // Bitmap size should be divisible by ROUNDING_VALUE to meet stride requirement.
     // This will help avoiding an extra bitmap allocation when passing the bitmap to RenderScript for blur.
     // Usually it's 16, but on Samsung devices it's 64 for some reason.
+    /**
+     * 位图尺寸应能被ROUNDING_VALUE整除以满足步长(stride)要求，这样可以避免在将位图传递给RenderScript进行模糊处理时额外分配位图。
+     * 通常这个值是16，但在三星设备上是64（原因不明）。
+     */
     private static final int ROUNDING_VALUE = 64;
+    /**
+     * 缩放因子。
+     */
     private final float scaleFactor;
+    /**
+     * 是否不需要步长对齐的标志。
+     */
     private final boolean noStrideAlignment;
 
     public SizeScaler(float scaleFactor) {
@@ -25,13 +34,17 @@ public class SizeScaler {
     }
 
     Size scale(int width, int height) {
+        // 计算未四舍五入的缩放后宽度
         int nonRoundedScaledWidth = downscaleSize(width);
-        int scaledWidth = roundSize(nonRoundedScaledWidth);
-        //Only width has to be aligned to ROUNDING_VALUE
-        float roundingScaleFactor = (float) width / scaledWidth;
-        //Ceiling because rounding or flooring might leave empty space on the View's bottom
-        int scaledHeight = (int) Math.ceil(height / roundingScaleFactor);
 
+        // 对宽度进行四舍五入（对齐到 ROUNDING_VALUE）
+        int scaledWidth = roundSize(nonRoundedScaledWidth);
+
+        // 计算实际使用的缩放因子（因为宽度可能被调整了）
+        float roundingScaleFactor = (float) width / scaledWidth;
+
+        // 根据实际缩放因子计算高度（向上取整）
+        int scaledHeight = (int) Math.ceil(height / roundingScaleFactor);
         return new Size(scaledWidth, scaledHeight);
     }
 
@@ -39,12 +52,18 @@ public class SizeScaler {
         return scale(size.width, size.height);
     }
 
+    /**
+     * 检查缩放后尺寸是否为零,避免创建无效位图
+     */
     boolean isZeroSized(int measuredWidth, int measuredHeight) {
         return downscaleSize(measuredHeight) == 0 || downscaleSize(measuredWidth) == 0;
     }
 
     /**
      * Rounds a value to the nearest divisible by {@link #ROUNDING_VALUE} to meet stride requirement
+     * 如果禁用步长对齐，直接返回原值
+     * 如果已经是倍数，直接返回
+     * 否则调整到比原值大的最近倍数
      */
     private int roundSize(int value) {
         if (noStrideAlignment) {
@@ -57,6 +76,7 @@ public class SizeScaler {
     }
 
     private int downscaleSize(float value) {
+        // 向上取整函数：返回大于或等于参数的最小整数
         return (int) Math.ceil(value / scaleFactor);
     }
 
