@@ -80,6 +80,9 @@ public final class PreDrawBlurController implements BlurController {
      */
     private final int[] blurViewLocation = new int[2];
 
+    private float denisity;
+    public static final String TAG = "BlurView";
+
     /**
      *  预绘制监听器，用于在视图树绘制前更新模糊
      */
@@ -136,7 +139,7 @@ public final class PreDrawBlurController implements BlurController {
 
         int measuredWidth = blurView.getMeasuredWidth();
         int measuredHeight = blurView.getMeasuredHeight();
-
+        denisity = blurView.getResources().getDisplayMetrics().density;
         init(measuredWidth, measuredHeight);
     }
 
@@ -150,17 +153,31 @@ public final class PreDrawBlurController implements BlurController {
             return;
         }
         if (blurAlgorithm == null) {
-            Log.d("BlurView", "------没有模糊算法,参数传递错误");
+            Log.d(TAG, "------没有模糊算法,参数传递错误");
             return;
         }
 
         blurView.setWillNotDraw(false); // 需要绘制
         // 计算缩放后的位图尺寸（降低分辨率提升性能）
-        SizeScaler.Size bitmapSize = sizeScaler.scale(measuredWidth, measuredHeight);
-        // 创建位图，使用模糊算法支持的位图配置
-        internalBitmap = Bitmap.createBitmap(bitmapSize.width, bitmapSize.height, blurAlgorithm.getSupportedBitmapConfig());
-        // 创建画布
-        internalCanvas = new BlurViewCanvas(internalBitmap);
+        SizeScaler.Size newBitmapSize = sizeScaler.scale(measuredWidth, measuredHeight);
+        // 检查是否需要重新创建位图
+        if (internalBitmap == null || internalBitmap.getWidth() != newBitmapSize.width
+                || internalBitmap.getHeight() != newBitmapSize.height) {
+
+            // 回收旧位图
+            if (internalBitmap != null && !internalBitmap.isRecycled()) {
+                internalBitmap.recycle();
+            }
+
+            // 创建新位图（使用模糊算法支持的配置）
+            internalBitmap = Bitmap.createBitmap(newBitmapSize.width, newBitmapSize.height, blurAlgorithm.getSupportedBitmapConfig());
+            // 创建画布
+            internalCanvas = new BlurViewCanvas(internalBitmap);
+            // 更新画布使用的位图
+            internalCanvas.setBitmap(internalBitmap);
+        }
+        Log.d(TAG, "-----imageWidth=" + internalBitmap.getWidth() + ",imageHeight=" + internalBitmap.getHeight());
+
         initialized = true; // 标记已初始化
         // 初始更新模糊
         updateBlur();
@@ -171,7 +188,6 @@ public final class PreDrawBlurController implements BlurController {
         if (!blurEnabled || !initialized) {
             return;
         }
-
 //        if (frameClearDrawable == null) {
 //            // 这个方法高效地将整个位图设置为指定的颜色（这里为透明）。它直接操作位图的像素，速度较快。
 //            internalBitmap.eraseColor(Color.TRANSPARENT);
@@ -179,7 +195,6 @@ public final class PreDrawBlurController implements BlurController {
 //            // 使用这个 Drawable绘制到内部画布（internalCanvas）上
 //            frameClearDrawable.draw(internalCanvas);
 //        }
-
         // 保存画布状态
         internalCanvas.save();
         // 设置画布变换矩阵，使得画布上的绘制从blurView的位置开始
@@ -194,23 +209,24 @@ public final class PreDrawBlurController implements BlurController {
         // 恢复画布状态
         internalCanvas.restore();
 
-        // 模糊并保存
-        blurAndSave();
+        // 使用模糊算法对内部位图进行模糊
+        internalBitmap = blurAlgorithm.blur(internalBitmap, blurRadius);
+        Log.d(TAG, "-------blurRadius=" + blurRadius);
     }
 
     /**
-     * Set up matrix to draw starting from blurView's position
+     * 将根视图（rootView）中与模糊视图（blurView）重叠的部分内容绘制到内部位图（internalBitmap）上
      */
     private void setupInternalCanvasMatrix() {
         // 获取根视图和模糊视图在屏幕上的位置
         rootView.getLocationOnScreen(rootLocation);
         blurView.getLocationOnScreen(blurViewLocation);
 
-        // 计算相对位置
+        // 模糊视图相对于根视图的左侧偏移量（水平方向）
         int left = blurViewLocation[0] - rootLocation[0];
+        // 模糊视图相对于根视图的顶部偏移量（垂直方向）
         int top = blurViewLocation[1] - rootLocation[1];
 
-        // https://github.com/Dimezis/BlurView/issues/128
         // 计算缩放因子（因为内部位图可能被缩小了）
         float scaleFactorH = (float) blurView.getHeight() / internalBitmap.getHeight();
         float scaleFactorW = (float) blurView.getWidth() / internalBitmap.getWidth();
@@ -245,25 +261,18 @@ public final class PreDrawBlurController implements BlurController {
         canvas.restore();
 
         // 如果需要，应用噪声效果
-        if (applyNoise) {
-            Noise.apply(canvas, blurView.getContext(), blurView.getWidth(), blurView.getHeight());
-        }
+//        if (applyNoise) {
+//            Noise.apply(canvas, blurView.getContext(), blurView.getWidth(), blurView.getHeight());
+//        }
+//
+//        // 绘制覆盖颜色（比如半透明遮罩）
+//        if (overlayColor != TRANSPARENT) {
+//            canvas.drawColor(overlayColor);
+//        }
 
-        // 绘制覆盖颜色（比如半透明遮罩）
-        if (overlayColor != TRANSPARENT) {
-            canvas.drawColor(overlayColor);
-        }
+        canvas.drawBitmap(internalBitmap, 0, 0, null);
 
         return true;
-    }
-
-    private void blurAndSave() {
-        // 使用模糊算法对内部位图进行模糊
-        internalBitmap = blurAlgorithm.blur(internalBitmap, blurRadius);
-        // 如果模糊算法不允许修改位图（如RenderScript可能直接操作原图），则需要重新设置画布的位图
-        if (!blurAlgorithm.canModifyBitmap()) {
-            internalCanvas.setBitmap(internalBitmap);
-        }
     }
 
     /**
@@ -273,7 +282,6 @@ public final class PreDrawBlurController implements BlurController {
     public void updateBlurViewSize() {
         int measuredWidth = blurView.getMeasuredWidth();
         int measuredHeight = blurView.getMeasuredHeight();
-
         init(measuredWidth, measuredHeight);
     }
 

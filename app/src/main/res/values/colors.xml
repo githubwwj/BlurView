@@ -7,4 +7,6 @@
     <color name="colorAccentOverlay">#1400bcd4</color>
     <color name="colorTransparentBlack">#14000000</color>
     <color name="colorPrimaryTransparent">#6400bcd4</color>
+    <color name="main_text_color">#FF000000</color>
+    <color name="common_txt_level_1">#FF212121</color>
 </resources>

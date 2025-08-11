@@ -1,5 +1,6 @@
 package com.eightbitlab.blurview_sample;
 
+import android.content.Intent;
 import android.graphics.Outline;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -50,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
 
             return windowInsets;
         });
+        startActivity(new Intent(this, ActivityBlurTest.class));
     }
 
     private void initView() {
