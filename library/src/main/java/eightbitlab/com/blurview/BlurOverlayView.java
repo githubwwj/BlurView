@@ -695,6 +695,8 @@ public class BlurOverlayView extends View {
             canvas.rotate(rotation, rect.centerX(), rect.centerY());
 
             // 绘制模糊矩形
+            menuPaint.setColor(Color.argb(100, 255, 0, 0));
+            menuPaint.setStyle(Paint.Style.FILL);
             canvas.drawRect(rect, menuPaint);
 
             blurController.draw(canvas);
