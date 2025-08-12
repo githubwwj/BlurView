@@ -10,7 +10,8 @@
     <eightbitlab.com.blurview.BlurTarget
         android:id="@+id/target"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:layout_marginTop="80dp">
 
         <androidx.viewpager.widget.ViewPager
             android:id="@+id/viewPager"
@@ -23,6 +24,7 @@
         android:id="@+id/topBlurView"
         android:layout_width="match_parent"
         android:layout_height="400dp"
+        android:layout_marginTop="120dp"
         android:layout_marginHorizontal="26dp"
         android:background="@drawable/rounded"
         android:elevation="16dp"

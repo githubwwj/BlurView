@@ -45,9 +45,9 @@ public class MainActivity extends AppCompatActivity {
         ViewCompat.setOnApplyWindowInsetsListener(bottomBlurView, (v, windowInsets) -> {
             Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
             bottomBlurView.setPadding(0, 0, 0, insets.bottom);
-            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) topBlurView.getLayoutParams();
-            params.topMargin = (int) (insets.top * 1.5);
-            topBlurView.setLayoutParams(params);
+//            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) topBlurView.getLayoutParams();
+//            params.topMargin = (int) (insets.top * 1.5);
+//            topBlurView.setLayoutParams(params);
 
             return windowInsets;
         });
