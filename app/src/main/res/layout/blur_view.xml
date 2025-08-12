@@ -19,10 +19,7 @@
             android:layout_toEndOf="@id/blurViewRight"
             android:gravity="center">
 
-            <eightbitlab.com.blurview.BlurRectView
-                android:id="@+id/blurRect"
-                android:layout_width="88dp"
-                android:layout_height="88dp" />
+
 
         </LinearLayout>
 

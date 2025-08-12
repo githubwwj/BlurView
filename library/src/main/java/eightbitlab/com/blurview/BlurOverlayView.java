@@ -19,6 +19,8 @@ import android.view.View;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 
+import com.eightbitlab.blurview.R;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -45,6 +47,8 @@ public class BlurOverlayView extends View {
 
     // 尺寸转换
     private float defaultSize;
+    private float rectMin;
+    private float copyRectOffset;
     private float handleSize;
     private float buttonSize;
     private float selectionMargin; // 图层外边框间距
@@ -76,6 +80,8 @@ public class BlurOverlayView extends View {
         // 尺寸转换
         density = getResources().getDisplayMetrics().density;
         defaultSize = 88 * density;
+        rectMin = 18 * density;
+        copyRectOffset = 16 * density;
         handleSize = 24 * density;
         buttonSize = 32 * density;
         selectionMargin = 12 * density; // 图层外边框间距
@@ -221,15 +227,14 @@ public class BlurOverlayView extends View {
     }
 
     private void drawDragPreview(Canvas canvas) {
-        previewPaint.setColor(Color.argb(100, 66, 153, 225));
+        // 黑色透明度25%
+        previewPaint.setColor(Color.argb(63, 0, 0, 0));
         previewPaint.setStyle(Paint.Style.FILL);
-
         canvas.drawRect(dragRect, previewPaint);
 
         previewPaint.setStyle(Paint.Style.STROKE);
-        previewPaint.setColor(Color.parseColor("#4299E1"));
+        previewPaint.setColor(Color.WHITE);
         previewPaint.setStrokeWidth(1 * density);
-
         canvas.drawRect(dragRect, previewPaint);
 
         // 绘制尺寸提示
@@ -423,7 +428,7 @@ public class BlurOverlayView extends View {
     // 添加新模糊矩形
     public void addBlurRect(float left, float top, float right, float bottom) {
         BlurRect rect = new BlurRect(left, top, right, bottom);
-        rect.constrainToBounds(borderRect); // 确保在边界内
+        rect.constrainToBounds(borderRect, defaultSize); // 确保在边界内
         blurRectList.add(rect);
         selectedRect = rect;
         blurController.addBlurRect(rect);
@@ -434,9 +439,13 @@ public class BlurOverlayView extends View {
         if (selectedRect != null && selectedRect.isVisible(borderRect)) {
             BlurRect copy = new BlurRect(selectedRect);
             // 向右下偏移
-            copy.rect.offset(selectedRect.rect.width() * 0.2f,
-                    selectedRect.rect.height() * 0.2f);
-            copy.constrainToBounds(borderRect); // 确保在边界内
+            copy.rect.offset(selectedRect.rect.width() + copyRectOffset,
+                    selectedRect.rect.height() + copyRectOffset);
+            if (selectedRect.rect.width() >= defaultSize) {
+                copy.constrainToBounds(borderRect, defaultSize); // 确保在边界内
+            } else {
+                copy.constrainToBounds(borderRect, rectMin); // 确保在边界内
+            }
             blurRectList.add(copy);
             selectedRect = copy;
             invalidate();
@@ -539,7 +548,7 @@ public class BlurOverlayView extends View {
 
         // 添加调整操作初始状态
         float resizeStartX, resizeStartY;
-        RectF initialRect = new RectF();
+        final RectF initialRect = new RectF();
         float initialCenterX, initialCenterY;
 
         // 新增矩阵用于坐标转换
@@ -570,13 +579,14 @@ public class BlurOverlayView extends View {
             // 选中状态边框
             selectionPaint = new Paint();
             selectionPaint.setStyle(Paint.Style.STROKE);
-            selectionPaint.setColor(Color.RED);
-            selectionPaint.setStrokeWidth(1.2f * density);
+            // 蓝色
+            selectionPaint.setColor(getResources().getColor(R.color.blurview_stroke));
+            selectionPaint.setStrokeWidth(2f * density);
             selectionPaint.setAntiAlias(true);
 
             // 调整大小手柄画笔
             resizeDotPaint = new Paint();
-            resizeDotPaint.setColor(Color.parseColor("#ED8936")); // 橙色
+            resizeDotPaint.setColor(getResources().getColor(R.color.blurview_stroke));
             resizeDotPaint.setStyle(Paint.Style.FILL);
             resizeDotPaint.setAntiAlias(true);
         }
@@ -720,7 +730,7 @@ public class BlurOverlayView extends View {
                         rotateHandleBottomLeft.top, null);
 
                 // 绘制四个调整手柄（小圆点）
-                float dotRadius = 4.2f * density; // 3dp
+                float dotRadius = 4f * density; // 4dp
                 canvas.drawCircle(resizeHandleTop.centerX(), resizeHandleTop.centerY(), dotRadius, resizeDotPaint);
                 canvas.drawCircle(resizeHandleBottom.centerX(), resizeHandleBottom.centerY(), dotRadius, resizeDotPaint);
                 canvas.drawCircle(resizeHandleLeft.centerX(), resizeHandleLeft.centerY(), dotRadius, resizeDotPaint);
@@ -891,38 +901,42 @@ public class BlurOverlayView extends View {
             switch (resizeHandleType) {
                 case RESIZE_TOP:
                     float newTop = initialRect.top + rotatedDy;
-                    if (newTop < initialRect.bottom - defaultSize) {
+                    if (newTop < initialRect.bottom - rectMin) {
                         rect.top = newTop;
                     }
                     break;
 
                 case RESIZE_BOTTOM:
                     float newBottom = initialRect.bottom + rotatedDy;
-                    if (newBottom > initialRect.top + defaultSize) {
+                    if (newBottom > initialRect.top + rectMin) {
                         rect.bottom = newBottom;
                     }
                     break;
 
                 case RESIZE_LEFT:
                     float newLeft = initialRect.left + rotatedDx;
-                    if (newLeft < initialRect.right - defaultSize) {
+                    if (newLeft < initialRect.right - rectMin) {
                         rect.left = newLeft;
                     }
                     break;
 
                 case RESIZE_RIGHT:
                     float newRight = initialRect.right + rotatedDx;
-                    if (newRight > initialRect.left + defaultSize) {
+                    if (newRight > initialRect.left + rectMin) {
                         rect.right = newRight;
                     }
                     break;
             }
 
             // 确保矩形在边界内
-            constrainToBounds(boundary);
+            constrainToBounds(boundary, rectMin);
         }
 
-        void constrainToBounds(RectF boundary) {
+        /**
+         * @param boundary 边界
+         * @param minSize  最小宽高
+         */
+        void constrainToBounds(RectF boundary, float minSize) {
             // 左边界
             if (rect.left < boundary.left) {
                 rect.left = boundary.left;
@@ -941,7 +955,6 @@ public class BlurOverlayView extends View {
             }
 
             // 确保最小尺寸
-            float minSize = defaultSize;
             if (rect.width() < minSize) {
                 if (resizeHandleType == RESIZE_LEFT) {
                     rect.left = rect.right - minSize;

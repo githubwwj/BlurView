@@ -39,7 +39,6 @@ public interface BlurAlgorithm {
 
     void render(@NonNull Canvas canvas, @NonNull Bitmap bitmap);
 
-    void render(@NonNull Canvas canvas, @NonNull Bitmap bitmap, BlurOverlayView.BlurRect blurRect);
 
 
 }

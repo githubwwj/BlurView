@@ -3,6 +3,7 @@ package eightbitlab.com.blurview;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
@@ -132,19 +133,21 @@ public final class BlurRectController implements BlurController {
         this.selectedRect = blurRect;
         float rectWidth = blurRect.rect.width();
         float rectHeight = blurRect.rect.height();
-//        SizeScaler sizeScaler = new SizeScaler(scaleFactor);
-//        if (sizeScaler.isZeroSized(rectWidth, rectHeight)) {
-//            return;
-//        }
-//        // 计算缩放后的位图尺寸（降低分辨率提升性能）
-//        SizeScaler.Size newBitmapSize = sizeScaler.scale(rectWidth, rectHeight);
-//         创建新位图（使用模糊算法支持的配置）
-//        internalBitmap = Bitmap.createBitmap(newBitmapSize.width, newBitmapSize.height, blurAlgorithm.getSupportedBitmapConfig());
-        internalBitmap = Bitmap.createBitmap((int) rectWidth, (int) rectHeight, blurAlgorithm.getSupportedBitmapConfig());
+
+        // 计算缩放后的位图尺寸（目标区域尺寸 / scaleFactor）
+        SizeScaler sizeScaler = new SizeScaler(scaleFactor);
+        SizeScaler.Size newBitmapSize = sizeScaler.scale(rectWidth, rectHeight);
+
+        // 创建缩放后的位图（用于模糊计算）
+        internalBitmap = Bitmap.createBitmap(
+                newBitmapSize.width,
+                newBitmapSize.height,
+                blurAlgorithm.getSupportedBitmapConfig()
+        );
         internalCanvas = new BlurViewCanvas(internalBitmap);
-        Log.d(TAG, "-----imageWidth=" + internalBitmap.getWidth() + ",imageHeight=" + internalBitmap.getHeight());
-        initialized = true; // 标记已初始化
-        // 初始更新模糊
+        internalCanvas.setBitmap(internalBitmap);
+
+        initialized = true;
         updateBlur();
     }
 
@@ -176,7 +179,6 @@ public final class BlurRectController implements BlurController {
 
         // 使用模糊算法对内部位图进行模糊
         internalBitmap = blurAlgorithm.blur(internalBitmap, blurRadius);
-        Log.d(TAG, "-------blurRadius=" + blurRadius);
     }
 
     /**
@@ -208,42 +210,31 @@ public final class BlurRectController implements BlurController {
 
         internalCanvas.translate(scaledLeftPosition, scaledTopPosition);
         internalCanvas.scale(1 / scaleFactorW, 1 / scaleFactorH);
+
     }
 
     @Override
     public boolean draw(Canvas canvas) {
-        if (!blurEnabled || !initialized) {
-            return true;
-        }
-        // 避免递归：如果画布是BlurViewCanvas类型（即自己绘制的），则跳过
-        if (canvas instanceof BlurViewCanvas) {
-            return false;
-        }
+        if (!blurEnabled || !initialized) return true;
+        if (canvas instanceof BlurViewCanvas) return false;
+        // 目标区域的尺寸和位置（来自BlurRect）
+        float rectLeft = selectedRect.rect.left;
+        float rectTop = selectedRect.rect.top;
+        float rectWidth = selectedRect.rect.width();
+        float rectHeight = selectedRect.rect.height();
 
-        // 计算缩放因子（因为内部位图是被缩放过）
-
-        float scaleFactorH = selectedRect.rect.height() / internalBitmap.getHeight();
-        float scaleFactorW = selectedRect.rect.width() / internalBitmap.getWidth();
+        // 计算缩放因子（缩放后的位图需要放大 scaleFactor 倍才能覆盖目标区域）
+        float scaleFactorW = rectWidth / internalBitmap.getWidth();
+        float scaleFactorH = rectHeight / internalBitmap.getHeight();
 
         canvas.save();
-        // 缩放画布，与内部位图的缩放比例一致
-        canvas.scale(scaleFactorW, scaleFactorH);
-        // 将模糊后的位图绘制到视图的画布上（这里由具体的模糊算法完成）
-        blurAlgorithm.render(canvas, internalBitmap, selectedRect);
+        // 先平移画布到目标区域的左上角，再缩放
+        canvas.translate(rectLeft, rectTop); // 1. 平移到目标区域起点
+        canvas.scale(scaleFactorW, scaleFactorH); // 2. 放大到目标区域尺寸
+        blurAlgorithm.render(canvas, internalBitmap);
+        // 3. 渲染模糊后的位图（缩放后的位图会被放大到原尺寸）
         canvas.restore();
-
-        // 如果需要，应用噪声效果
-//        if (applyNoise) {
-//            Noise.apply(canvas, blurView.getContext(), blurView.getWidth(), blurView.getHeight());
-//        }
-//
-//        // 绘制覆盖颜色（比如半透明遮罩）
-//        if (overlayColor != TRANSPARENT) {
-//            canvas.drawColor(overlayColor);
-//        }
-
-        canvas.drawBitmap(internalBitmap, 0, 0, null);
-
+        canvas.drawBitmap(internalBitmap, 0, 0, selectedRect.selectionPaint);
         return true;
     }
 
