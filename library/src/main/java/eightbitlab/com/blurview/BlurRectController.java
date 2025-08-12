@@ -43,7 +43,7 @@ public final class BlurRectController implements BlurController {
     private final float scaleFactor;
 
     /**
-     *  是否添加噪点（提升视觉效果）
+     * 是否添加噪点（提升视觉效果）
      */
     private final boolean applyNoise;
 
@@ -136,6 +136,9 @@ public final class BlurRectController implements BlurController {
 
         // 计算缩放后的位图尺寸（目标区域尺寸 / scaleFactor）
         SizeScaler sizeScaler = new SizeScaler(scaleFactor);
+        if (sizeScaler.isZeroSized(rectWidth, rectHeight)) {
+            return;
+        }
         SizeScaler.Size newBitmapSize = sizeScaler.scale(rectWidth, rectHeight);
 
         // 创建缩放后的位图（用于模糊计算）
