@@ -12,7 +12,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 18
+        minSdkVersion 21
         targetSdkVersion 36
         testInstrumentationRunner "de.mannodermaus.junit5.AndroidJUnit5Builder"
     }
@@ -36,6 +36,7 @@ dependencies {
     implementation 'androidx.annotation:annotation:1.9.1'
     javadocDeps 'androidx.annotation:annotation:1.9.1'
 
+    implementation 'com.caverock:androidsvg:1.4' // 最新稳定版
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
 }

@@ -11,6 +11,7 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.drawable.VectorDrawable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -87,8 +88,10 @@ public class BlurOverlayView extends View {
         selectionMargin = 12 * density; // 图层外边框间距
 
         // 创建操作图标
-        copyIcon = createIconBitmap(Color.parseColor("#48BB78"), "C");
-        deleteIcon = createIconBitmap(Color.parseColor("#E53E3E"), "D");
+        copyIcon = createSvg(R.drawable.blurview_copy);
+        deleteIcon = createSvg(R.drawable.blurview_delete);
+        deleteIcon = createSvg(R.drawable.blurview_left);
+        deleteIcon = createSvg(R.drawable.blurview_right);
         rotateIcon = createRotateIconBitmap();
 
         // 硬件加速开启
@@ -462,27 +465,12 @@ public class BlurOverlayView extends View {
     }
 
     // 创建操作图标
-    private Bitmap createIconBitmap(int color, String text) {
-        Bitmap bitmap = Bitmap.createBitmap((int) buttonSize, (int) buttonSize, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-
-        Paint paint = new Paint();
-        paint.setColor(color);
-        paint.setAntiAlias(true);
-
-        // 绘制圆形背景
-        canvas.drawCircle(buttonSize / 2, buttonSize / 2, buttonSize / 2, paint);
-
-        // 绘制文字
-        paint.setColor(Color.WHITE);
-        paint.setTextSize(buttonSize * 0.5f);
-        paint.setTextAlign(Paint.Align.CENTER);
-
-        Paint.FontMetrics fm = paint.getFontMetrics();
-        float textY = buttonSize / 2 - (fm.ascent + fm.descent) / 2;
-        canvas.drawText(text, buttonSize / 2, textY, paint);
-
-        return bitmap;
+    private VectorDrawable createSvg(int id) {
+        VectorDrawable svgDrawable = (VectorDrawable) getContext().getDrawable(id);
+        int drawableWidth = svgDrawable.getIntrinsicWidth();
+        int drawableHeight = svgDrawable.getIntrinsicHeight();
+        svgDrawable.setBounds(0, 0, drawableWidth, drawableHeight);
+        return svgDrawable;
     }
 
     // 创建旋转图标
