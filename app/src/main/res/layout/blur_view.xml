@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rlRoot"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:id="@+id/rlView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:id="@+id/flBorder"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/blurViewLeft"
+            android:layout_toEndOf="@id/blurViewRight"
+            android:gravity="center">
+
+            <eightbitlab.com.blurview.BlurRectView
+                android:id="@+id/blurRect"
+                android:layout_width="88dp"
+                android:layout_height="88dp" />
+
+        </LinearLayout>
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/blurViewLeft"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_toEndOf="@id/flBorder"
+            android:src="@drawable/blurview_left" />
+
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/blurViewRight"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/flBorder"
+            android:src="@drawable/blurview_right" />
+
+    </RelativeLayout>
+
+    <LinearLayout
+        android:id="@+id/blurMenuBg"
+        android:layout_width="104dp"
+        android:layout_height="40dp"
+        android:layout_gravity="center"
+        android:background="@drawable/blurview_menu_bg"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/blurViewCopy"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="11dp"
+            android:src="@drawable/blurview_copy" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="23dp"
+            android:background="#A3A3A3" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/blurViewDelete"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="11dp"
+            android:src="@drawable/blurview_delete" />
+
+
+    </LinearLayout>
+
+
+</LinearLayout>
