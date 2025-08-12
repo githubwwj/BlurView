@@ -34,9 +34,10 @@ configurations {
 
 dependencies {
     implementation 'androidx.annotation:annotation:1.9.1'
+    implementation 'androidx.core:core:1.16.0'
     javadocDeps 'androidx.annotation:annotation:1.9.1'
 
-    implementation 'com.caverock:androidsvg:1.4' // 最新稳定版
+//    implementation 'com.caverock:androidsvg:1.4' // 最新稳定版
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
 }

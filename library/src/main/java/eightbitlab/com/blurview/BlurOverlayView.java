@@ -9,8 +9,8 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -18,7 +18,9 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 
 import com.eightbitlab.blurview.R;
 
@@ -50,15 +52,25 @@ public class BlurOverlayView extends View {
     private float defaultSize;
     private float rectMin;
     private float copyRectOffset;
+    /**
+     * 左旋右旋手柄大小
+     */
     private float handleSize;
-    private float buttonSize;
-    private float selectionMargin; // 图层外边框间距
+    /**
+     * 拷贝删除按钮大小
+     */
+    private float copyDeleteBtnSize;
+    /**
+     * 图层外边框间距
+     */
+    private float frameMargin;
     private float density;
 
     // 操作按钮
     private Bitmap copyIcon;
     private Bitmap deleteIcon;
-    private Bitmap rotateIcon;
+    private Bitmap leftRotateIcon;
+    private Bitmap rightRotateIcon;
     private final Paint previewPaint = new Paint();
 
 
@@ -83,17 +95,15 @@ public class BlurOverlayView extends View {
         defaultSize = 88 * density;
         rectMin = 18 * density;
         copyRectOffset = 16 * density;
-        handleSize = 24 * density;
-        buttonSize = 32 * density;
-        selectionMargin = 12 * density; // 图层外边框间距
+        frameMargin = 6 * density;
 
         // 创建操作图标
-        copyIcon = createSvg(R.drawable.blurview_copy);
-        deleteIcon = createSvg(R.drawable.blurview_delete);
-        deleteIcon = createSvg(R.drawable.blurview_left);
-        deleteIcon = createSvg(R.drawable.blurview_right);
-        rotateIcon = createRotateIconBitmap();
-
+        copyIcon = getBitmapFromSvg(R.drawable.blurview_copy);
+        deleteIcon = getBitmapFromSvg(R.drawable.blurview_delete);
+        leftRotateIcon = getBitmapFromSvg(R.drawable.blurview_left);
+        rightRotateIcon = getBitmapFromSvg(R.drawable.blurview_right);
+        handleSize = leftRotateIcon.getWidth();
+        copyDeleteBtnSize = copyIcon.getWidth();
         // 硬件加速开启
         setLayerType(LAYER_TYPE_HARDWARE, null);
     }
@@ -442,8 +452,7 @@ public class BlurOverlayView extends View {
         if (selectedRect != null && selectedRect.isVisible(borderRect)) {
             BlurRect copy = new BlurRect(selectedRect);
             // 向右下偏移
-            copy.rect.offset(selectedRect.rect.width() + copyRectOffset,
-                    selectedRect.rect.height() + copyRectOffset);
+            copy.rect.offset(copyRectOffset, copyRectOffset);
             if (selectedRect.rect.width() >= defaultSize) {
                 copy.constrainToBounds(borderRect, defaultSize); // 确保在边界内
             } else {
@@ -473,29 +482,18 @@ public class BlurOverlayView extends View {
         return svgDrawable;
     }
 
-    // 创建旋转图标
-    private Bitmap createRotateIconBitmap() {
-        Bitmap bitmap = Bitmap.createBitmap((int) handleSize, (int) handleSize, Bitmap.Config.ARGB_8888);
+    public Bitmap getBitmapFromSvg(@DrawableRes int drawableId) {
+        Drawable drawable = ContextCompat.getDrawable(getContext(), drawableId);
+        if (drawable == null) {
+            return null;
+        }
+
+        // 创建一个Bitmap，大小与Drawable相同
+        Bitmap bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(),
+                drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
-
-        Paint paint = new Paint();
-        paint.setColor(Color.parseColor("#4299E1"));
-        paint.setAntiAlias(true);
-        paint.setStyle(Paint.Style.FILL);
-
-        // 绘制旋转箭头
-        Path path = new Path();
-        path.moveTo(handleSize * 0.3f, handleSize * 0.7f);
-        path.lineTo(handleSize * 0.5f, handleSize * 0.3f);
-        path.lineTo(handleSize * 0.7f, handleSize * 0.7f);
-        path.close();
-
-        canvas.drawPath(path, paint);
-
-        // 绘制小圆点
-        paint.setColor(Color.WHITE);
-        canvas.drawCircle(handleSize / 2, handleSize / 2, handleSize * 0.1f, paint);
-
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
         return bitmap;
     }
 
@@ -503,7 +501,7 @@ public class BlurOverlayView extends View {
     public class BlurRect {
         RectF rect;
         float rotation = 0;
-        Paint blurPaint;
+        Paint menuPaint;
         Paint selectionPaint; // 选中状态边框
         Paint resizeDotPaint; // 调整大小手柄画笔
 
@@ -514,6 +512,9 @@ public class BlurOverlayView extends View {
         // 操作按钮位置
         RectF copyButtonRect = new RectF();
         RectF deleteButtonRect = new RectF();
+
+        // 菜单背景
+        RectF menuRect = new RectF();
 
         // 旋转手柄（右上角和左下角）
         RectF rotateHandleTopRight = new RectF();
@@ -559,10 +560,8 @@ public class BlurOverlayView extends View {
 
         private void initPaint() {
             // 模糊效果
-            blurPaint = new Paint();
-            blurPaint.setColor(Color.argb(55, 45, 55, 72)); // 深蓝色半透明
-            blurPaint.setStyle(Paint.Style.FILL);
-            blurPaint.setAntiAlias(true);
+            menuPaint = new Paint();
+            menuPaint.setAntiAlias(true);
 
             // 选中状态边框
             selectionPaint = new Paint();
@@ -589,10 +588,10 @@ public class BlurOverlayView extends View {
         void updateButtonPositions() {
             // 计算选中状态边框矩形（比矩形大12dp）
             selectionRect.set(
-                    rect.left - selectionMargin,
-                    rect.top - selectionMargin,
-                    rect.right + selectionMargin,
-                    rect.bottom + selectionMargin
+                    rect.left - frameMargin,
+                    rect.top - frameMargin,
+                    rect.right + frameMargin,
+                    rect.bottom + frameMargin
             );
 
             // 更新旋转矩阵
@@ -604,47 +603,53 @@ public class BlurOverlayView extends View {
 
             // 按钮位置（在矩形上方或下方）
             float buttonsY;
-            float buttonMargin = 12 * density; // 12dp
+            float buttonMargin = 22 * density; // 21dp
             if (centerY < screenCenterY) {
                 // 在屏幕上半部分，菜单显示在下方（在矩形边框线下方）
                 buttonsY = selectionRect.bottom + buttonMargin;
             } else {
                 // 在屏幕下半部分，菜单显示在上方（在矩形边框线上方）
-                buttonsY = selectionRect.top - buttonMargin - buttonSize;
+                buttonsY = selectionRect.top - buttonMargin - copyDeleteBtnSize;
             }
 
-            // 复制按钮（左侧）
-            copyButtonRect.set(
-                    rect.centerX() - buttonSize - 20,
+
+            float halfMenuWidth = 104 * density / 2;
+            menuRect.set(rect.centerX() - halfMenuWidth,
                     buttonsY,
-                    rect.centerX() - 20,
-                    buttonsY + buttonSize
+                    rect.centerX() + halfMenuWidth,
+                    buttonsY + 40 * density);
+
+
+            // 复制按钮（左侧）
+            deleteButtonRect.set(
+                    rect.centerX() - copyDeleteBtnSize - 11 * density,
+                    buttonsY + 8 * density,
+                    rect.centerX() - 11 * density,
+                    buttonsY + copyDeleteBtnSize + 8 * density
             );
 
             // 删除按钮（右侧）
-            deleteButtonRect.set(
-                    rect.centerX() + 20,
-                    buttonsY,
-                    rect.centerX() + buttonSize + 20,
-                    buttonsY + buttonSize
+            copyButtonRect.set(
+                    rect.centerX() + 11 * density,
+                    buttonsY + 8 * density,
+                    rect.centerX() + copyDeleteBtnSize + 11 * density,
+                    buttonsY + copyDeleteBtnSize + 8 * density
             );
 
-            // 旋转手柄（在矩形边框线外侧12dp处）
-            float rotateOffset = selectionMargin; // 12dp
             // 右上角旋转手柄
             rotateHandleTopRight.set(
-                    selectionRect.right + rotateOffset - handleSize / 2,
-                    selectionRect.top - rotateOffset - handleSize / 2,
-                    selectionRect.right + rotateOffset + handleSize / 2,
-                    selectionRect.top - rotateOffset + handleSize / 2
+                    selectionRect.right,
+                    selectionRect.top - handleSize,
+                    selectionRect.right + handleSize,
+                    selectionRect.top
             );
 
             // 左下角旋转手柄
             rotateHandleBottomLeft.set(
-                    selectionRect.left - rotateOffset - handleSize / 2,
-                    selectionRect.bottom + rotateOffset - handleSize / 2,
-                    selectionRect.left - rotateOffset + handleSize / 2,
-                    selectionRect.bottom + rotateOffset + handleSize / 2
+                    selectionRect.left - handleSize,
+                    selectionRect.bottom,
+                    selectionRect.left,
+                    selectionRect.bottom + handleSize
             );
 
             // 调整手柄（小圆点，在矩形边框线中点）
@@ -690,7 +695,7 @@ public class BlurOverlayView extends View {
             canvas.rotate(rotation, rect.centerX(), rect.centerY());
 
             // 绘制模糊矩形
-            canvas.drawRect(rect, blurPaint);
+            canvas.drawRect(rect, menuPaint);
 
             blurController.draw(canvas);
 
@@ -701,22 +706,23 @@ public class BlurOverlayView extends View {
 
                 // 绘制选中状态边框（比矩形大12dp）
                 selectionRect.set(
-                        rect.left - selectionMargin,
-                        rect.top - selectionMargin,
-                        rect.right + selectionMargin,
-                        rect.bottom + selectionMargin
+                        rect.left - frameMargin,
+                        rect.top - frameMargin,
+                        rect.right + frameMargin,
+                        rect.bottom + frameMargin
                 );
                 canvas.drawRect(selectionRect, selectionPaint);
 
                 // 绘制两个旋转手柄（在矩形边框线外侧）
-                canvas.drawBitmap(rotateIcon,
-                        rotateHandleTopRight.left,
-                        rotateHandleTopRight.top, null);
+                if (touchMode == MODE_ROTATE) {
+                    canvas.drawBitmap(leftRotateIcon,
+                            rotateHandleTopRight.left,
+                            rotateHandleTopRight.top, null);
 
-                canvas.drawBitmap(rotateIcon,
-                        rotateHandleBottomLeft.left,
-                        rotateHandleBottomLeft.top, null);
-
+                    canvas.drawBitmap(rightRotateIcon,
+                            rotateHandleBottomLeft.left,
+                            rotateHandleBottomLeft.top, null);
+                }
                 // 绘制四个调整手柄（小圆点）
                 float dotRadius = 4f * density; // 4dp
                 canvas.drawCircle(resizeHandleTop.centerX(), resizeHandleTop.centerY(), dotRadius, resizeDotPaint);
@@ -729,6 +735,28 @@ public class BlurOverlayView extends View {
 
             // 在原始坐标系绘制按钮（不受旋转影响）
             if (isSelected && showButtons) {
+                canvas.save();
+                // 旋转画布
+                canvas.rotate(rotation, rect.centerX(), rect.centerY());
+                canvas.drawBitmap(leftRotateIcon,
+                        rotateHandleTopRight.left,
+                        rotateHandleTopRight.top, null);
+                canvas.drawBitmap(rightRotateIcon,
+                        rotateHandleBottomLeft.left,
+                        rotateHandleBottomLeft.top, null);
+                canvas.restore();
+
+                // 黑色透明度60%
+                menuPaint.setColor(Color.argb(99, 0, 0, 0));
+                menuPaint.setStyle(Paint.Style.FILL);
+                canvas.drawRoundRect(menuRect, 32 * density, 32 * density, menuPaint);
+
+                menuPaint.setColor(getResources().getColor(R.color.blurview_menu_divider));
+                menuPaint.setStyle(Paint.Style.STROKE);
+                menuPaint.setStrokeWidth(0.5f * density);
+                canvas.drawLine(menuRect.centerX(), menuRect.top + 8 * density,
+                        menuRect.centerX(), menuRect.bottom - 8 * density, menuPaint);
+
                 canvas.drawBitmap(copyIcon, copyButtonRect.left, copyButtonRect.top, null);
                 canvas.drawBitmap(deleteIcon, deleteButtonRect.left, deleteButtonRect.top, null);
             }
@@ -782,10 +810,10 @@ public class BlurOverlayView extends View {
 
             // 计算矩形边框线（比矩形大12dp）
             selectionRect.set(
-                    rect.left - selectionMargin,
-                    rect.top - selectionMargin,
-                    rect.right + selectionMargin,
-                    rect.bottom + selectionMargin
+                    rect.left - frameMargin,
+                    rect.top - frameMargin,
+                    rect.right + frameMargin,
+                    rect.bottom + frameMargin
             );
 
             // 减小检测区域16
@@ -813,10 +841,10 @@ public class BlurOverlayView extends View {
 
             // 计算矩形边框线（比矩形大12dp）
             selectionRect.set(
-                    rect.left - selectionMargin,
-                    rect.top - selectionMargin,
-                    rect.right + selectionMargin,
-                    rect.bottom + selectionMargin
+                    rect.left - frameMargin,
+                    rect.top - frameMargin,
+                    rect.right + frameMargin,
+                    rect.bottom + frameMargin
             );
 
             // 确定手柄类型
