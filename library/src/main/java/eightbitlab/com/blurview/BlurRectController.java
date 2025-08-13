@@ -2,15 +2,10 @@ package eightbitlab.com.blurview;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Rect;
-import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
@@ -55,7 +50,7 @@ public final class BlurRectController implements BlurController {
     /**
      * 用于模糊的内部位图,存储底层视图截图的位图
      */
-    private Bitmap internalBitmap;
+    private Bitmap blurBitmap;
 
     /**
      * 应用模糊效果的视图
@@ -102,7 +97,7 @@ public final class BlurRectController implements BlurController {
      */
     @Nullable
     private Drawable frameClearDrawable;
-    private BlurOverlayView.BlurRect selectedRect = null;
+    private BlurOverlayView.BlurRect blurRect = null;
 
     /**
      * @param blurView    View which will draw it's blurred underlying content
@@ -118,6 +113,7 @@ public final class BlurRectController implements BlurController {
                               @ColorInt int overlayColor,
                               BlurAlgorithm algorithm,
                               float scaleFactor,
+                              float blurRadius,
                               boolean applyNoise) {
         this.rootView = rootView;
         this.blurView = blurView;
@@ -125,14 +121,15 @@ public final class BlurRectController implements BlurController {
         this.blurAlgorithm = algorithm;
         this.scaleFactor = scaleFactor;
         this.applyNoise = applyNoise;
+        this.blurRadius = blurRadius;
 
         denisity = blurView.getResources().getDisplayMetrics().density;
     }
 
     public void addBlurRect(BlurOverlayView.BlurRect blurRect) {
-        this.selectedRect = blurRect;
-        float rectWidth = blurRect.rect.width();
-        float rectHeight = blurRect.rect.height();
+        this.blurRect = blurRect;
+        float rectWidth = blurRect.mRect.width();
+        float rectHeight = blurRect.mRect.height();
 
         // 计算缩放后的位图尺寸（目标区域尺寸 / scaleFactor）
         SizeScaler sizeScaler = new SizeScaler(scaleFactor);
@@ -142,16 +139,19 @@ public final class BlurRectController implements BlurController {
         SizeScaler.Size newBitmapSize = sizeScaler.scale(rectWidth, rectHeight);
 
         // 创建缩放后的位图（用于模糊计算）
-        internalBitmap = Bitmap.createBitmap(
+        blurBitmap = Bitmap.createBitmap(
                 newBitmapSize.width,
                 newBitmapSize.height,
                 blurAlgorithm.getSupportedBitmapConfig()
         );
-        internalCanvas = new BlurViewCanvas(internalBitmap);
-        internalCanvas.setBitmap(internalBitmap);
-
+        internalCanvas = new BlurViewCanvas(blurBitmap);
+        this.blurRect.blurBitmap = blurBitmap;
         initialized = true;
-        updateBlur();
+    }
+
+    public void setBlurRect(BlurOverlayView.BlurRect blurRect) {
+        this.blurRect = blurRect;
+        blurBitmap = blurRect.blurBitmap;
     }
 
     @SuppressWarnings("WeakerAccess")
@@ -159,13 +159,13 @@ public final class BlurRectController implements BlurController {
         if (!blurEnabled || !initialized) {
             return;
         }
-        if (frameClearDrawable == null) {
-            // 这个方法高效地将整个位图设置为指定的颜色（这里为透明）。它直接操作位图的像素，速度较快。
-            internalBitmap.eraseColor(Color.TRANSPARENT);
-        } else {
-            // 使用这个 Drawable绘制到内部画布（internalCanvas）上
-            frameClearDrawable.draw(internalCanvas);
-        }
+//        if (frameClearDrawable == null) {
+//            // 这个方法高效地将整个位图设置为指定的颜色（这里为透明）。它直接操作位图的像素，速度较快。
+//            internalBitmap.eraseColor(Color.TRANSPARENT);
+//        } else {
+//            // 使用这个 Drawable绘制到内部画布（internalCanvas）上
+//            frameClearDrawable.draw(internalCanvas);
+//        }
         // 保存画布状态
         internalCanvas.save();
         // 设置画布变换矩阵，使得画布上的绘制从blurView的位置开始
@@ -181,21 +181,21 @@ public final class BlurRectController implements BlurController {
         internalCanvas.restore();
 
         // 使用模糊算法对内部位图进行模糊
-        internalBitmap = blurAlgorithm.blur(internalBitmap, blurRadius);
+        blurBitmap = blurAlgorithm.blur(blurBitmap, blurRadius);
     }
 
     /**
      * 将根视图（rootView）中与模糊视图（blurView）重叠的部分内容绘制到内部位图（internalBitmap）上
      */
     private void setupInternalCanvasMatrix() {
-        if (selectedRect == null) {
+        if (blurRect == null) {
             return;
         }
         // 获取根视图和模糊图层在屏幕上的位置
         rootView.getLocationOnScreen(rootLocation);
         blurView.getLocationOnScreen(blurViewLocation);
-        blurViewLocation[0] = (int) selectedRect.rect.left;
-        blurViewLocation[1] = (int) selectedRect.rect.top + blurViewLocation[1];
+        blurViewLocation[0] = (int) blurRect.mRect.left;
+        blurViewLocation[1] = (int) blurRect.mRect.top + blurViewLocation[1];
 
         // 模糊图层相对于根视图的左侧偏移量（水平方向）
         float left = blurViewLocation[0] - rootLocation[0];
@@ -204,8 +204,8 @@ public final class BlurRectController implements BlurController {
         float top = blurViewLocation[1] - rootLocation[1];
 
         // 计算缩放因子（因为内部位图可能被缩小了）
-        float scaleFactorH = selectedRect.rect.height() / internalBitmap.getHeight();
-        float scaleFactorW = selectedRect.rect.width() / internalBitmap.getWidth();
+        float scaleFactorH = blurRect.mRect.height() / blurBitmap.getHeight();
+        float scaleFactorW = blurRect.mRect.width() / blurBitmap.getWidth();
 
         // 调整画布位置，使绘制从模糊视图的位置开始
         float scaledLeftPosition = -left / scaleFactorW;
@@ -218,26 +218,33 @@ public final class BlurRectController implements BlurController {
 
     @Override
     public boolean draw(Canvas canvas) {
+        if (canvas instanceof BlurViewCanvas || blurBitmap == null) return false;
         if (!blurEnabled || !initialized) return true;
-        if (canvas instanceof BlurViewCanvas) return false;
+        updateBlur();
         // 目标区域的尺寸和位置（来自BlurRect）
-        float rectLeft = selectedRect.rect.left;
-        float rectTop = selectedRect.rect.top;
-        float rectWidth = selectedRect.rect.width();
-        float rectHeight = selectedRect.rect.height();
+        float rectLeft = blurRect.mRect.left;
+        float rectTop = blurRect.mRect.top;
+        float rectWidth = blurRect.mRect.width();
+        float rectHeight = blurRect.mRect.height();
 
         // 计算缩放因子（缩放后的位图需要放大 scaleFactor 倍才能覆盖目标区域）
-        float scaleFactorW = rectWidth / internalBitmap.getWidth();
-        float scaleFactorH = rectHeight / internalBitmap.getHeight();
+        float scaleFactorW = rectWidth / blurBitmap.getWidth();
+        float scaleFactorH = rectHeight / blurBitmap.getHeight();
 
         canvas.save();
         // 先平移画布到目标区域的左上角，再缩放
         canvas.translate(rectLeft, rectTop); // 1. 平移到目标区域起点
         canvas.scale(scaleFactorW, scaleFactorH); // 2. 放大到目标区域尺寸
-        blurAlgorithm.render(canvas, internalBitmap);
+        blurAlgorithm.render(canvas, blurBitmap);
+        if (overlayColor != TRANSPARENT) {
+            canvas.drawColor(overlayColor);
+        }
+        if (applyNoise) {
+            Noise.apply(canvas, blurView.getContext(), (int) blurRect.mRect.width(), (int) blurRect.mRect.height());
+        }
         // 3. 渲染模糊后的位图（缩放后的位图会被放大到原尺寸）
         canvas.restore();
-        canvas.drawBitmap(internalBitmap, 0, 0, selectedRect.selectionPaint);
+        canvas.drawBitmap(blurBitmap, 0, 0, null);
         return true;
     }
 

@@ -1,5 +1,6 @@
 package eightbitlab.com.blurview;
 
+import static eightbitlab.com.blurview.BlurController.DEFAULT_BLUR_RADIUS;
 import static eightbitlab.com.blurview.BlurController.DEFAULT_SCALE_FACTOR;
 
 import android.annotation.SuppressLint;
@@ -72,7 +73,9 @@ public class BlurOverlayView extends View {
     private Bitmap leftRotateIcon;
     private Bitmap rightRotateIcon;
     private final Paint previewPaint = new Paint();
-
+    private Paint menuPaint;
+    private Paint selectionPaint; // 选中状态边框
+    private Paint resizeDotPaint; // 调整大小手柄画笔
 
     private BlurController blurController = new NoOpController();
     @ColorInt
@@ -104,37 +107,55 @@ public class BlurOverlayView extends View {
         rightRotateIcon = getBitmapFromSvg(R.drawable.blurview_right);
         handleSize = leftRotateIcon.getWidth();
         copyDeleteBtnSize = copyIcon.getWidth();
+
+        // 模糊效果
+        menuPaint = new Paint();
+        menuPaint.setAntiAlias(true);
+
+        // 选中状态边框
+        selectionPaint = new Paint();
+        selectionPaint.setStyle(Paint.Style.STROKE);
+        // 蓝色
+        selectionPaint.setColor(getResources().getColor(R.color.blurview_stroke));
+        selectionPaint.setStrokeWidth(2f * density);
+        selectionPaint.setAntiAlias(true);
+
+        // 调整大小手柄画笔
+        resizeDotPaint = new Paint();
+        resizeDotPaint.setColor(getResources().getColor(R.color.blurview_stroke));
+        resizeDotPaint.setStyle(Paint.Style.FILL);
+        resizeDotPaint.setAntiAlias(true);
+
         // 硬件加速开启
         setLayerType(LAYER_TYPE_HARDWARE, null);
     }
 
 
     // ------------------------设置模糊图层的代码------------
-    public BlurViewFacade setupWith(@NonNull BlurTarget target, BlurAlgorithm algorithm, float scaleFactor, boolean applyNoise) {
+    public BlurViewFacade setupWith(@NonNull BlurTarget target, BlurAlgorithm algorithm, float scaleFactor,
+                                    float blurRadius, boolean applyNoise) {
         blurController.destroy();
         if (BlurTarget.canUseHardwareRendering) {
             // Ignores the blur algorithm, always uses RenderEffect
-            blurController = new RenderNodeBlurController(this, target, overlayColor, scaleFactor, applyNoise);
+            blurController = new RenderNodeBlurController(this, target, overlayColor, scaleFactor, blurRadius, applyNoise);
         } else {
-            blurController = new BlurRectController(this, target, overlayColor, algorithm, scaleFactor, applyNoise);
+            blurController = new BlurRectController(this, target, overlayColor,
+                    algorithm, scaleFactor, blurRadius, applyNoise);
         }
-
         return blurController;
     }
 
-    public BlurViewFacade setupWith(@NonNull BlurTarget rootView, float scaleFactor, boolean applyNoise) {
-        BlurAlgorithm algorithm;
-        if (BlurTarget.canUseHardwareRendering) {
-            // Ignores the blur algorithm, always uses RenderNodeBlurController and RenderEffect
-            algorithm = null;
-        } else {
-            algorithm = new RenderScriptBlur(getContext());
-        }
-        return setupWith(rootView, algorithm, scaleFactor, applyNoise);
+    public BlurViewFacade setupWith(@NonNull BlurTarget rootView, float scaleFactor, float blurRadius, boolean applyNoise) {
+        BlurAlgorithm algorithm = new RenderScriptBlur(getContext());
+        return setupWith(rootView, algorithm, scaleFactor, blurRadius, applyNoise);
+    }
+
+    public BlurViewFacade setupWith(@NonNull BlurTarget rootView, float blurRadius) {
+        return setupWith(rootView, DEFAULT_SCALE_FACTOR, blurRadius, false);
     }
 
     public BlurViewFacade setupWith(@NonNull BlurTarget rootView) {
-        return setupWith(rootView, DEFAULT_SCALE_FACTOR, true);
+        return setupWith(rootView, DEFAULT_BLUR_RADIUS);
     }
 
 
@@ -142,6 +163,10 @@ public class BlurOverlayView extends View {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         blurController.setBlurAutoUpdate(false);
+        for (BlurRect blurRect : blurRectList) {
+            blurRect.recycle();
+        }
+        blurRectList.clear();
     }
 
     @Override
@@ -313,8 +338,8 @@ public class BlurOverlayView extends View {
             // 记录初始旋转角度
             selectedRect.startRotation = selectedRect.rotation;
             // 计算初始角度（相对于矩形中心）
-            float centerX = selectedRect.rect.centerX();
-            float centerY = selectedRect.rect.centerY();
+            float centerX = selectedRect.mRect.centerX();
+            float centerY = selectedRect.mRect.centerY();
             selectedRect.startAngle = (float) Math.toDegrees(Math.atan2(y - centerY, x - centerX));
             return;
         }
@@ -336,12 +361,11 @@ public class BlurOverlayView extends View {
         }
 
         // 5. 检查是否点中已有矩形
-        BlurRect clickedRect = null;
         for (int i = blurRectList.size() - 1; i >= 0; i--) {
             BlurRect rect = blurRectList.get(i);
             if (rect.isVisible(borderRect) && rect.contains(x, y)) {
-                clickedRect = rect;
-                selectedRect = clickedRect;
+                selectedRect = rect;
+                blurController.setBlurRect(rect);
                 touchMode = MODE_MOVE;
                 invalidate();
                 return;
@@ -361,15 +385,15 @@ public class BlurOverlayView extends View {
             case MODE_MOVE:
                 if (selectedRect != null) {
                     // 允许移动到边界外
-                    selectedRect.rect.offset(dx, dy);
+                    selectedRect.mRect.offset(dx, dy);
                     invalidate();
                 }
                 break;
 
             case MODE_ROTATE:
                 if (selectedRect != null && selectedRect.isVisible(borderRect)) {
-                    float centerX = selectedRect.rect.centerX();
-                    float centerY = selectedRect.rect.centerY();
+                    float centerX = selectedRect.mRect.centerX();
+                    float centerY = selectedRect.mRect.centerY();
                     // 计算当前角度（相对于矩形中心）
                     float currentAngle = (float) Math.toDegrees(Math.atan2(y - centerY, x - centerX));
                     // 计算旋转角度（相对于初始角度）
@@ -452,13 +476,14 @@ public class BlurOverlayView extends View {
         if (selectedRect != null && selectedRect.isVisible(borderRect)) {
             BlurRect copy = new BlurRect(selectedRect);
             // 向右下偏移
-            copy.rect.offset(copyRectOffset, copyRectOffset);
-            if (selectedRect.rect.width() >= defaultSize) {
+            copy.mRect.offset(copyRectOffset, copyRectOffset);
+            if (selectedRect.mRect.width() >= defaultSize) {
                 copy.constrainToBounds(borderRect, defaultSize); // 确保在边界内
             } else {
                 copy.constrainToBounds(borderRect, rectMin); // 确保在边界内
             }
             blurRectList.add(copy);
+            blurController.addBlurRect(copy);
             selectedRect = copy;
             invalidate();
         }
@@ -467,19 +492,11 @@ public class BlurOverlayView extends View {
     // 删除选中矩形
     public void deleteSelectedRect() {
         if (selectedRect != null) {
+            selectedRect.recycle();
             blurRectList.remove(selectedRect);
             selectedRect = null;
             invalidate();
         }
-    }
-
-    // 创建操作图标
-    private VectorDrawable createSvg(int id) {
-        VectorDrawable svgDrawable = (VectorDrawable) getContext().getDrawable(id);
-        int drawableWidth = svgDrawable.getIntrinsicWidth();
-        int drawableHeight = svgDrawable.getIntrinsicHeight();
-        svgDrawable.setBounds(0, 0, drawableWidth, drawableHeight);
-        return svgDrawable;
     }
 
     public Bitmap getBitmapFromSvg(@DrawableRes int drawableId) {
@@ -499,11 +516,11 @@ public class BlurOverlayView extends View {
 
     // 模糊矩形类
     public class BlurRect {
-        RectF rect;
+        /**
+         * 模糊位图坐标
+         */
+        RectF mRect;
         float rotation = 0;
-        Paint menuPaint;
-        Paint selectionPaint; // 选中状态边框
-        Paint resizeDotPaint; // 调整大小手柄画笔
 
         // 旋转操作状态
         float startRotation = 0; // 旋转开始时的角度
@@ -544,61 +561,40 @@ public class BlurOverlayView extends View {
         private final Matrix rotationMatrix = new Matrix();
         private final Matrix inverseRotationMatrix = new Matrix();
         private final RectF selectionRect = new RectF();
+        Bitmap blurBitmap;
 
         // 新建矩形
         BlurRect(float left, float top, float right, float bottom) {
-            rect = new RectF(left, top, right, bottom);
-            initPaint();
+            mRect = new RectF(left, top, right, bottom);
         }
 
         // 复制构造
         BlurRect(BlurRect source) {
-            rect = new RectF(source.rect);
+            mRect = new RectF(source.mRect);
             rotation = source.rotation;
-            initPaint();
-        }
-
-        private void initPaint() {
-            // 模糊效果
-            menuPaint = new Paint();
-            menuPaint.setAntiAlias(true);
-
-            // 选中状态边框
-            selectionPaint = new Paint();
-            selectionPaint.setStyle(Paint.Style.STROKE);
-            // 蓝色
-            selectionPaint.setColor(getResources().getColor(R.color.blurview_stroke));
-            selectionPaint.setStrokeWidth(2f * density);
-            selectionPaint.setAntiAlias(true);
-
-            // 调整大小手柄画笔
-            resizeDotPaint = new Paint();
-            resizeDotPaint.setColor(getResources().getColor(R.color.blurview_stroke));
-            resizeDotPaint.setStyle(Paint.Style.FILL);
-            resizeDotPaint.setAntiAlias(true);
         }
 
         // 更新旋转矩阵
         private void updateRotationMatrix() {
             rotationMatrix.reset();
-            rotationMatrix.setRotate(rotation, rect.centerX(), rect.centerY());
+            rotationMatrix.setRotate(rotation, mRect.centerX(), mRect.centerY());
             rotationMatrix.invert(inverseRotationMatrix);
         }
 
         void updateButtonPositions() {
             // 计算选中状态边框矩形（比矩形大12dp）
             selectionRect.set(
-                    rect.left - frameMargin,
-                    rect.top - frameMargin,
-                    rect.right + frameMargin,
-                    rect.bottom + frameMargin
+                    mRect.left - frameMargin,
+                    mRect.top - frameMargin,
+                    mRect.right + frameMargin,
+                    mRect.bottom + frameMargin
             );
 
             // 更新旋转矩阵
             updateRotationMatrix();
 
             // 菜单位置（根据模糊区域中心与页面中心的关系）
-            float centerY = rect.centerY();
+            float centerY = mRect.centerY();
             float screenCenterY = getHeight() / 2f;
 
             // 按钮位置（在矩形上方或下方）
@@ -614,25 +610,25 @@ public class BlurOverlayView extends View {
 
 
             float halfMenuWidth = 104 * density / 2;
-            menuRect.set(rect.centerX() - halfMenuWidth,
+            menuRect.set(mRect.centerX() - halfMenuWidth,
                     buttonsY,
-                    rect.centerX() + halfMenuWidth,
+                    mRect.centerX() + halfMenuWidth,
                     buttonsY + 40 * density);
 
 
             // 复制按钮（左侧）
             deleteButtonRect.set(
-                    rect.centerX() - copyDeleteBtnSize - 11 * density,
+                    mRect.centerX() - copyDeleteBtnSize - 11 * density,
                     buttonsY + 8 * density,
-                    rect.centerX() - 11 * density,
+                    mRect.centerX() - 11 * density,
                     buttonsY + copyDeleteBtnSize + 8 * density
             );
 
             // 删除按钮（右侧）
             copyButtonRect.set(
-                    rect.centerX() + 11 * density,
+                    mRect.centerX() + 11 * density,
                     buttonsY + 8 * density,
-                    rect.centerX() + copyDeleteBtnSize + 11 * density,
+                    mRect.centerX() + copyDeleteBtnSize + 11 * density,
                     buttonsY + copyDeleteBtnSize + 8 * density
             );
 
@@ -692,13 +688,13 @@ public class BlurOverlayView extends View {
             canvas.save();
 
             // 旋转画布
-            canvas.rotate(rotation, rect.centerX(), rect.centerY());
+            canvas.rotate(rotation, mRect.centerX(), mRect.centerY());
 
-            // 绘制模糊矩形
-            menuPaint.setColor(Color.argb(100, 255, 0, 0));
-            menuPaint.setStyle(Paint.Style.FILL);
-            canvas.drawRect(rect, menuPaint);
-
+//            // 绘制模糊矩形
+//            menuPaint.setColor(Color.argb(100, 200, 0, 0));
+//            menuPaint.setStyle(Paint.Style.FILL);
+//            canvas.drawRect(mRect, menuPaint);
+            blurController.setBlurRect(this);
             blurController.draw(canvas);
 
             // 绘制选中状态
@@ -708,10 +704,10 @@ public class BlurOverlayView extends View {
 
                 // 绘制选中状态边框（比矩形大12dp）
                 selectionRect.set(
-                        rect.left - frameMargin,
-                        rect.top - frameMargin,
-                        rect.right + frameMargin,
-                        rect.bottom + frameMargin
+                        mRect.left - frameMargin,
+                        mRect.top - frameMargin,
+                        mRect.right + frameMargin,
+                        mRect.bottom + frameMargin
                 );
                 canvas.drawRect(selectionRect, selectionPaint);
 
@@ -739,7 +735,7 @@ public class BlurOverlayView extends View {
             if (isSelected && showButtons) {
                 canvas.save();
                 // 旋转画布
-                canvas.rotate(rotation, rect.centerX(), rect.centerY());
+                canvas.rotate(rotation, mRect.centerX(), mRect.centerY());
                 canvas.drawBitmap(leftRotateIcon,
                         rotateHandleTopRight.left,
                         rotateHandleTopRight.top, null);
@@ -767,19 +763,19 @@ public class BlurOverlayView extends View {
         boolean contains(float x, float y) {
             // 创建旋转矩阵
             matrix.reset();
-            matrix.setRotate(-rotation, rect.centerX(), rect.centerY());
+            matrix.setRotate(-rotation, mRect.centerX(), mRect.centerY());
 
             // 反向旋转触摸点
             float[] point = new float[]{x, y};
             matrix.mapPoints(point);
 
-            return rect.contains(point[0], point[1]);
+            return mRect.contains(point[0], point[1]);
         }
 
         boolean isInRotateHandle(float x, float y) {
             // 修复：旋转后仍能检测到旋转手柄
             matrix.reset();
-            matrix.setRotate(-rotation, rect.centerX(), rect.centerY());
+            matrix.setRotate(-rotation, mRect.centerX(), mRect.centerY());
             float[] point = {x, y};
             matrix.mapPoints(point);
 
@@ -790,7 +786,7 @@ public class BlurOverlayView extends View {
         boolean isInResizeHandle(float x, float y) {
             // 修复：旋转后仍能检测到调整手柄
             matrix.reset();
-            matrix.setRotate(-rotation, rect.centerX(), rect.centerY());
+            matrix.setRotate(-rotation, mRect.centerX(), mRect.centerY());
             float[] point = {x, y};
             matrix.mapPoints(point);
 
@@ -804,7 +800,7 @@ public class BlurOverlayView extends View {
         boolean isOnBorder(float x, float y) {
             // 创建旋转矩阵
             matrix.reset();
-            matrix.setRotate(-rotation, rect.centerX(), rect.centerY());
+            matrix.setRotate(-rotation, mRect.centerX(), mRect.centerY());
             float[] point = {x, y};
             matrix.mapPoints(point);
             float rotatedX = point[0];
@@ -812,10 +808,10 @@ public class BlurOverlayView extends View {
 
             // 计算矩形边框线（比矩形大12dp）
             selectionRect.set(
-                    rect.left - frameMargin,
-                    rect.top - frameMargin,
-                    rect.right + frameMargin,
-                    rect.bottom + frameMargin
+                    mRect.left - frameMargin,
+                    mRect.top - frameMargin,
+                    mRect.right + frameMargin,
+                    mRect.bottom + frameMargin
             );
 
             // 减小检测区域16
@@ -835,7 +831,7 @@ public class BlurOverlayView extends View {
         int getBorderHandleType(float x, float y) {
             // 创建旋转矩阵
             matrix.reset();
-            matrix.setRotate(-rotation, rect.centerX(), rect.centerY());
+            matrix.setRotate(-rotation, mRect.centerX(), mRect.centerY());
             float[] point = {x, y};
             matrix.mapPoints(point);
             float rotatedX = point[0];
@@ -843,10 +839,10 @@ public class BlurOverlayView extends View {
 
             // 计算矩形边框线（比矩形大12dp）
             selectionRect.set(
-                    rect.left - frameMargin,
-                    rect.top - frameMargin,
-                    rect.right + frameMargin,
-                    rect.bottom + frameMargin
+                    mRect.left - frameMargin,
+                    mRect.top - frameMargin,
+                    mRect.right + frameMargin,
+                    mRect.bottom + frameMargin
             );
 
             // 确定手柄类型
@@ -866,7 +862,7 @@ public class BlurOverlayView extends View {
         int getResizeHandleType(float x, float y) {
             // 修复：旋转后仍能检测到调整手柄类型
             matrix.reset();
-            matrix.setRotate(-rotation, rect.centerX(), rect.centerY());
+            matrix.setRotate(-rotation, mRect.centerX(), mRect.centerY());
             float[] point = {x, y};
             matrix.mapPoints(point);
 
@@ -887,16 +883,16 @@ public class BlurOverlayView extends View {
 
         void move(float dx, float dy, RectF boundary) {
             // 移动矩形
-            rect.offset(dx, dy);
+            mRect.offset(dx, dy);
         }
 
         // 初始化调整操作
         void initResizeState(float x, float y) {
             resizeStartX = x;
             resizeStartY = y;
-            initialRect.set(rect);
-            initialCenterX = rect.centerX();
-            initialCenterY = rect.centerY();
+            initialRect.set(mRect);
+            initialCenterX = mRect.centerX();
+            initialCenterY = mRect.centerY();
         }
 
         // 重写的resize方法 - 修复旋转后只调整一边的问题
@@ -920,28 +916,28 @@ public class BlurOverlayView extends View {
                 case RESIZE_TOP:
                     float newTop = initialRect.top + rotatedDy;
                     if (newTop < initialRect.bottom - rectMin) {
-                        rect.top = newTop;
+                        mRect.top = newTop;
                     }
                     break;
 
                 case RESIZE_BOTTOM:
                     float newBottom = initialRect.bottom + rotatedDy;
                     if (newBottom > initialRect.top + rectMin) {
-                        rect.bottom = newBottom;
+                        mRect.bottom = newBottom;
                     }
                     break;
 
                 case RESIZE_LEFT:
                     float newLeft = initialRect.left + rotatedDx;
                     if (newLeft < initialRect.right - rectMin) {
-                        rect.left = newLeft;
+                        mRect.left = newLeft;
                     }
                     break;
 
                 case RESIZE_RIGHT:
                     float newRight = initialRect.right + rotatedDx;
                     if (newRight > initialRect.left + rectMin) {
-                        rect.right = newRight;
+                        mRect.right = newRight;
                     }
                     break;
             }
@@ -956,35 +952,35 @@ public class BlurOverlayView extends View {
          */
         void constrainToBounds(RectF boundary, float minSize) {
             // 左边界
-            if (rect.left < boundary.left) {
-                rect.left = boundary.left;
+            if (mRect.left < boundary.left) {
+                mRect.left = boundary.left;
             }
             // 右边界
-            if (rect.right > boundary.right) {
-                rect.right = boundary.right;
+            if (mRect.right > boundary.right) {
+                mRect.right = boundary.right;
             }
             // 上边界
-            if (rect.top < boundary.top) {
-                rect.top = boundary.top;
+            if (mRect.top < boundary.top) {
+                mRect.top = boundary.top;
             }
             // 下边界
-            if (rect.bottom > boundary.bottom) {
-                rect.bottom = boundary.bottom;
+            if (mRect.bottom > boundary.bottom) {
+                mRect.bottom = boundary.bottom;
             }
 
             // 确保最小尺寸
-            if (rect.width() < minSize) {
+            if (mRect.width() < minSize) {
                 if (resizeHandleType == RESIZE_LEFT) {
-                    rect.left = rect.right - minSize;
+                    mRect.left = mRect.right - minSize;
                 } else {
-                    rect.right = rect.left + minSize;
+                    mRect.right = mRect.left + minSize;
                 }
             }
-            if (rect.height() < minSize) {
+            if (mRect.height() < minSize) {
                 if (resizeHandleType == RESIZE_TOP) {
-                    rect.top = rect.bottom - minSize;
+                    mRect.top = mRect.bottom - minSize;
                 } else {
-                    rect.bottom = rect.top + minSize;
+                    mRect.bottom = mRect.top + minSize;
                 }
             }
         }
@@ -995,17 +991,24 @@ public class BlurOverlayView extends View {
 
         // 检查矩形是否可见（在边界内）
         boolean isVisible(RectF boundary) {
-            return RectF.intersects(rect, boundary) &&
-                    rect.width() > 0 &&
-                    rect.height() > 0;
+            return RectF.intersects(mRect, boundary) &&
+                    mRect.width() > 0 &&
+                    mRect.height() > 0;
         }
 
         // 检查矩形是否完全在边界外
         boolean isOutside(RectF boundary) {
-            return rect.right < boundary.left ||
-                    rect.left > boundary.right ||
-                    rect.bottom < boundary.top ||
-                    rect.top > boundary.bottom;
+            return mRect.right < boundary.left ||
+                    mRect.left > boundary.right ||
+                    mRect.bottom < boundary.top ||
+                    mRect.top > boundary.bottom;
+        }
+
+        public void recycle() {
+            if (null != blurBitmap && !blurBitmap.isRecycled()) {
+                blurBitmap.recycle();
+                blurBitmap = null;
+            }
         }
     }
 }

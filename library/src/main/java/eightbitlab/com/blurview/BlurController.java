@@ -5,8 +5,8 @@ import android.graphics.Canvas;
 public interface BlurController extends BlurViewFacade {
 
     float DEFAULT_SCALE_FACTOR = 4f;
-    float DEFAULT_BLUR_RADIUS = 2f;
-    String TAG="BlurView";
+    float DEFAULT_BLUR_RADIUS = 16f;
+    String TAG = "BlurView";
 
     /**
      * Draws blurred content on given canvas
@@ -20,7 +20,11 @@ public interface BlurController extends BlurViewFacade {
      */
     void updateBlurViewSize();
 
-    default void addBlurRect(BlurOverlayView.BlurRect blurRect){
+    default void addBlurRect(BlurOverlayView.BlurRect blurRect) {
+
+    }
+
+    default void setBlurRect(BlurOverlayView.BlurRect blurRect) {
 
     }
 

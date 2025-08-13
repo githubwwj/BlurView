@@ -129,6 +129,7 @@ public final class PreDrawBlurController implements BlurController {
                                  @ColorInt int overlayColor,
                                  BlurAlgorithm algorithm,
                                  float scaleFactor,
+                                 float blurRadius,
                                  boolean applyNoise) {
         this.rootView = rootView;
         this.blurView = blurView;
@@ -136,6 +137,7 @@ public final class PreDrawBlurController implements BlurController {
         this.blurAlgorithm = algorithm;
         this.scaleFactor = scaleFactor;
         this.applyNoise = applyNoise;
+        this.blurRadius = blurRadius;
 
         int measuredWidth = blurView.getMeasuredWidth();
         int measuredHeight = blurView.getMeasuredHeight();

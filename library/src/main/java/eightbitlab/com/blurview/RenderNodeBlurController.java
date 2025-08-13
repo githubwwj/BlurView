@@ -48,11 +48,13 @@ public class RenderNodeBlurController implements BlurController {
         return true;
     };
 
-    public RenderNodeBlurController(@NonNull View blurView, @NonNull BlurTarget target, int overlayColor, float scaleFactor, boolean applyNoise) {
+    public RenderNodeBlurController(@NonNull View blurView, @NonNull BlurTarget target, int overlayColor,
+                                    float scaleFactor, float blurRadius, boolean applyNoise) {
         this.blurView = blurView;
-        this.overlayColor = overlayColor;
         this.target = target;
+        this.overlayColor = overlayColor;
         this.scaleFactor = scaleFactor;
+        this.blurRadius = blurRadius;
         this.applyNoise = applyNoise;
         blurView.setWillNotDraw(false);
         blurView.getViewTreeObserver().addOnPreDrawListener(drawListener);
