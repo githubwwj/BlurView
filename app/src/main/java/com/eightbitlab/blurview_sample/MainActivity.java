@@ -5,7 +5,6 @@ import android.graphics.Outline;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.widget.SeekBar;
 
@@ -21,8 +20,8 @@ import androidx.viewpager.widget.ViewPager;
 
 import com.google.android.material.tabs.TabLayout;
 
-import eightbitlab.com.blurview.BlurTarget;
-import eightbitlab.com.blurview.BlurView;
+import com.appxy.blurview.BlurTarget;
+import com.appxy.blurview.BlurView;
 
 public class MainActivity extends AppCompatActivity {
 

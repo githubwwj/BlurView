@@ -1,16 +1,14 @@
-package eightbitlab.com.blurview;
+package com.appxy.blurview;
 
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.RecordingCanvas;
 import android.graphics.RenderNode;
-import android.os.Build;
 import android.util.AttributeSet;
 import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 
 /**
  * A FrameLayout that records a snapshot of its children on a RenderNode.

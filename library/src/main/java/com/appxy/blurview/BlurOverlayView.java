@@ -1,7 +1,7 @@
-package eightbitlab.com.blurview;
+package com.appxy.blurview;
 
-import static eightbitlab.com.blurview.BlurController.DEFAULT_BLUR_RADIUS;
-import static eightbitlab.com.blurview.BlurController.DEFAULT_SCALE_FACTOR;
+import static com.appxy.blurview.BlurController.DEFAULT_BLUR_RADIUS;
+import static com.appxy.blurview.BlurController.DEFAULT_SCALE_FACTOR;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -12,7 +12,6 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.VectorDrawable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;

@@ -1,8 +1,8 @@
-package eightbitlab.com.blurview;
+package com.appxy.blurview;
 
-import static eightbitlab.com.blurview.BlurController.DEFAULT_BLUR_RADIUS;
-import static eightbitlab.com.blurview.BlurController.DEFAULT_SCALE_FACTOR;
-import static eightbitlab.com.blurview.PreDrawBlurController.TRANSPARENT;
+import static com.appxy.blurview.BlurController.DEFAULT_BLUR_RADIUS;
+import static com.appxy.blurview.BlurController.DEFAULT_SCALE_FACTOR;
+import static com.appxy.blurview.PreDrawBlurController.TRANSPARENT;
 
 import android.annotation.SuppressLint;
 import android.content.Context;

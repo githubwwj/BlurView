@@ -1,8 +1,7 @@
-package eightbitlab.com.blurview;
+package com.appxy.blurview;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.View;

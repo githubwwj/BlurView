@@ -23,16 +23,16 @@ The BlurTarget may contain other BlurTargets and BlurViews though.<br/>
 ```XML
     <!--This is the content to be blurred by the BlurView. 
     It will render normally, and BlurView will use its snapshot for blurring-->
-    <eightbitlab.com.blurview.BlurTarget
+    <com.appxy.blurview.BlurTarget
         android:id="@+id/target"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
         
         <!--Your main content here-->
 
-    </eightbitlab.com.blurview.BlurTarget>
+    </com.appxy.blurview.BlurTarget>
 
-    <eightbitlab.com.blurview.BlurView
+    <com.appxy.blurview.BlurView
       android:id="@+id/blurView"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
@@ -40,7 +40,7 @@ The BlurTarget may contain other BlurTargets and BlurViews though.<br/>
     
        <!--Any child View here, TabLayout for example. This View will NOT be blurred -->
     
-    </eightbitlab.com.blurview.BlurView>
+    </com.appxy.blurview.BlurView>
 ```
 
 ```Java

@@ -1,4 +1,4 @@
-package eightbitlab.com.blurview;
+package com.appxy.blurview;
 
 import java.util.Objects;
 

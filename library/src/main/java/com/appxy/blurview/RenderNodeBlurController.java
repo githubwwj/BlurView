@@ -1,4 +1,4 @@
-package eightbitlab.com.blurview;
+package com.appxy.blurview;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -17,7 +17,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
-import eightbitlab.com.blurview.SizeScaler.Size;
+import com.appxy.blurview.SizeScaler.Size;
 
 @RequiresApi(api = Build.VERSION_CODES.S)
 public class RenderNodeBlurController implements BlurController {

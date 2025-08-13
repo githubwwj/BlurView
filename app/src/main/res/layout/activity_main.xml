@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     tools:context="com.eightbitlab.blurview_sample.MainActivity">
 
-    <eightbitlab.com.blurview.BlurTarget
+    <com.appxy.blurview.BlurTarget
         android:id="@+id/target"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -18,9 +18,9 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-    </eightbitlab.com.blurview.BlurTarget>
+    </com.appxy.blurview.BlurTarget>
 
-    <eightbitlab.com.blurview.BlurView
+    <com.appxy.blurview.BlurView
         android:id="@+id/topBlurView"
         android:layout_width="match_parent"
         android:layout_height="400dp"
@@ -50,9 +50,9 @@
 
         </LinearLayout>
 
-    </eightbitlab.com.blurview.BlurView>
+    </com.appxy.blurview.BlurView>
 
-    <eightbitlab.com.blurview.BlurView
+    <com.appxy.blurview.BlurView
         android:id="@+id/bottomBlurView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -65,6 +65,6 @@
             android:layout_height="@dimen/bottom_tab_height"
             android:background="@android:color/transparent" />
 
-    </eightbitlab.com.blurview.BlurView>
+    </com.appxy.blurview.BlurView>
 
 </FrameLayout>

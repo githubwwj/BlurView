@@ -37,7 +37,7 @@
 
     </RelativeLayout>
 
-    <eightbitlab.com.blurview.BlurTarget
+    <com.appxy.blurview.BlurTarget
         android:id="@+id/blurTarget"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -51,9 +51,9 @@
             android:scaleType="centerInside"
             android:src="@drawable/add_date_phone" />
 
-    </eightbitlab.com.blurview.BlurTarget>
+    </com.appxy.blurview.BlurTarget>
 
-    <eightbitlab.com.blurview.BlurOverlayView
+    <com.appxy.blurview.BlurOverlayView
         android:id="@+id/blurOverlayView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

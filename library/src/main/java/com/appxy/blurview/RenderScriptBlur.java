@@ -1,4 +1,4 @@
-package eightbitlab.com.blurview;
+package com.appxy.blurview;
 
 import static java.lang.Math.min;
 
