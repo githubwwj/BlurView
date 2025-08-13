@@ -12,6 +12,8 @@ import android.graphics.Shader;
 
 import androidx.annotation.NonNull;
 
+import com.appxy.tinyscanner.R;
+
 class Noise {
     private static Paint noisePaint;
 
@@ -32,7 +34,7 @@ class Noise {
 
     @NonNull
     private static Bitmap getNoiseBitmap(Context context) {
-        Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), com.eightbitlab.blurview.R.drawable.blue_noise);
+        Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.blue_noise);
         Bitmap alphaBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(alphaBitmap);
         Paint paint = new Paint();

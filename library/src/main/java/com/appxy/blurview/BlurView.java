@@ -15,7 +15,8 @@ import android.widget.FrameLayout;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 
-import com.eightbitlab.blurview.R;
+import com.appxy.tinyscanner.R;
+
 
 /**
  * FrameLayout that blurs its underlying content.

@@ -4,7 +4,7 @@ apply plugin: 'maven-publish'
 
 android {
     compileSdkVersion 36
-    namespace "com.eightbitlab.blurview"
+    namespace "com.appxy.tinyscanner"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11

@@ -22,7 +22,7 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 
-import com.eightbitlab.blurview.R;
+import com.appxy.tinyscanner.R;
 
 import java.util.ArrayList;
 import java.util.List;
