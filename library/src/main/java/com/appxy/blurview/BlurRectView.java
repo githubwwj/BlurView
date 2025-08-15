@@ -218,7 +218,7 @@ public class BlurRectView extends View {
                 touchMode != MODE_ROTATE &&
                 touchMode != MODE_RESIZE;
         blurRect.draw(canvas, isSelected(), showButtons);
-        canvas.drawRect(mDrawRect, selectionPaint);
+//        canvas.drawRect(mDrawRect, selectionPaint);
     }
 
     @Override
@@ -603,7 +603,7 @@ public class BlurRectView extends View {
         // 修改draw方法，增加showButtons参数
         void draw(Canvas canvas, boolean isSelected, boolean showButtons) {
             // 更新旋转矩阵
-            updateRotationMatrix();
+//            updateRotationMatrix();
 
             canvas.save();
 
@@ -611,9 +611,9 @@ public class BlurRectView extends View {
             canvas.rotate(rotation, mRect.centerX(), mRect.centerY());
 
 //            // 绘制模糊矩形
-            menuPaint.setColor(Color.argb(100, 200, 0, 0));
-            menuPaint.setStyle(Paint.Style.FILL);
-            canvas.drawRect(mRect, menuPaint);
+//            menuPaint.setColor(Color.argb(100, 200, 0, 0));
+//            menuPaint.setStyle(Paint.Style.FILL);
+//            canvas.drawRect(mRect, menuPaint);
             blurController.setBlurRect(this);
             blurController.draw(canvas);
 

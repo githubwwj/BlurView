@@ -2,6 +2,7 @@ package com.appxy.blurview;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.View;
@@ -134,8 +135,8 @@ public final class BlurRectController implements BlurController {
         // 计算缩放后的位图尺寸（目标区域尺寸 / scaleFactor）
         SizeScaler sizeScaler = new SizeScaler(scaleFactor);
         SizeScaler.Size newBitmapSize = sizeScaler.scale(rectWidth, rectHeight);
-        if (newBitmapSize.width==0 ||  newBitmapSize.height==0) {
-            Log.e("log","---------图片宽高为0");
+        if (newBitmapSize.width == 0 || newBitmapSize.height == 0) {
+            Log.e("log", "---------图片宽高为0");
             return;
         }
         // 创建新位图（使用模糊算法支持的配置）
@@ -156,13 +157,13 @@ public final class BlurRectController implements BlurController {
         if (!blurEnabled || !initialized) {
             return;
         }
-//        if (frameClearDrawable == null) {
-//            // 这个方法高效地将整个位图设置为指定的颜色（这里为透明）。它直接操作位图的像素，速度较快。
-//            blurBitmap.eraseColor(Color.TRANSPARENT);
-//        } else {
-//            // 使用这个 Drawable绘制到内部画布（internalCanvas）上
-//            frameClearDrawable.draw(internalCanvas);
-//        }
+        if (frameClearDrawable == null) {
+            // 这个方法高效地将整个位图设置为指定的颜色（这里为透明）。它直接操作位图的像素，速度较快。
+            blurBitmap.eraseColor(Color.TRANSPARENT);
+        } else {
+            // 使用这个 Drawable绘制到内部画布（internalCanvas）上
+            frameClearDrawable.draw(internalCanvas);
+        }
         // 保存画布状态
         internalCanvas.save();
         // 设置画布变换矩阵，使得画布上的绘制从blurView的位置开始

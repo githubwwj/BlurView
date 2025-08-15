@@ -17,6 +17,6 @@ public class ActivityBlurTest2 extends AppCompatActivity {
         setContentView(binding.getRoot());
         StatusBarsUtil.setEdgeToEdge(binding.getRoot());
 
-
+        binding.blurRl.setupWith(binding.blurTarget, 20);
     }
 }

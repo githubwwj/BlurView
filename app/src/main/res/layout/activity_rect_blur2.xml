@@ -39,8 +39,8 @@
 
     <com.appxy.blurview.BlurTarget
         android:id="@+id/blurTarget"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:layout_below="@id/title_rl">
 
         <androidx.appcompat.widget.AppCompatImageView
