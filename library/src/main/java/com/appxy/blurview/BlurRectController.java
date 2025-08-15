@@ -97,7 +97,7 @@ public final class BlurRectController implements BlurController {
      */
     @Nullable
     private Drawable frameClearDrawable;
-    private BlurOverlayView.BlurRect blurRect = null;
+    private BlurRectView.BlurRect blurRect = null;
 
     /**
      * @param blurView    View which will draw it's blurred underlying content
@@ -126,30 +126,27 @@ public final class BlurRectController implements BlurController {
         denisity = blurView.getResources().getDisplayMetrics().density;
     }
 
-    public void addBlurRect(BlurOverlayView.BlurRect blurRect) {
+    public void addBlurRect(BlurRectView.BlurRect blurRect) {
         this.blurRect = blurRect;
         float rectWidth = blurRect.mRect.width();
         float rectHeight = blurRect.mRect.height();
 
         // 计算缩放后的位图尺寸（目标区域尺寸 / scaleFactor）
         SizeScaler sizeScaler = new SizeScaler(scaleFactor);
-        if (sizeScaler.isZeroSized(rectWidth, rectHeight)) {
+        SizeScaler.Size newBitmapSize = sizeScaler.scale(rectWidth, rectHeight);
+        if (newBitmapSize.width==0 ||  newBitmapSize.height==0) {
+            Log.e("log","---------图片宽高为0");
             return;
         }
-        SizeScaler.Size newBitmapSize = sizeScaler.scale(rectWidth, rectHeight);
-
-        // 创建缩放后的位图（用于模糊计算）
-        blurBitmap = Bitmap.createBitmap(
-                newBitmapSize.width,
-                newBitmapSize.height,
-                blurAlgorithm.getSupportedBitmapConfig()
-        );
+        // 创建新位图（使用模糊算法支持的配置）
+        blurBitmap = Bitmap.createBitmap(newBitmapSize.width, newBitmapSize.height, blurAlgorithm.getSupportedBitmapConfig());
+        // 创建画布
         internalCanvas = new BlurViewCanvas(blurBitmap);
         this.blurRect.blurBitmap = blurBitmap;
         initialized = true;
     }
 
-    public void setBlurRect(BlurOverlayView.BlurRect blurRect) {
+    public void setBlurRect(BlurRectView.BlurRect blurRect) {
         this.blurRect = blurRect;
         blurBitmap = blurRect.blurBitmap;
     }
@@ -161,7 +158,7 @@ public final class BlurRectController implements BlurController {
         }
 //        if (frameClearDrawable == null) {
 //            // 这个方法高效地将整个位图设置为指定的颜色（这里为透明）。它直接操作位图的像素，速度较快。
-//            internalBitmap.eraseColor(Color.TRANSPARENT);
+//            blurBitmap.eraseColor(Color.TRANSPARENT);
 //        } else {
 //            // 使用这个 Drawable绘制到内部画布（internalCanvas）上
 //            frameClearDrawable.draw(internalCanvas);
@@ -185,7 +182,7 @@ public final class BlurRectController implements BlurController {
     }
 
     /**
-     * 将根视图（rootView）中与模糊视图（blurView）重叠的部分内容绘制到内部位图（internalBitmap）上
+     * 将根视图（rootView）中与模糊视图（blurView）重叠的部分内容绘制到内部位图（blurBitmap）上
      */
     private void setupInternalCanvasMatrix() {
         if (blurRect == null) {

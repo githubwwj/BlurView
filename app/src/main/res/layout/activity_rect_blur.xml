@@ -53,14 +53,14 @@
 
     </com.appxy.blurview.BlurTarget>
 
-    <com.appxy.blurview.BlurOverlayView
-        android:id="@+id/blurOverlayView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignStart="@id/blurTarget"
-        android:layout_alignTop="@id/blurTarget"
-        android:layout_alignEnd="@id/blurTarget"
-        android:layout_alignBottom="@id/blurTarget" />
+<!--    <com.appxy.blurview.BlurOverlayView-->
+<!--        android:id="@+id/blurOverlayView"-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:layout_alignStart="@id/blurTarget"-->
+<!--        android:layout_alignTop="@id/blurTarget"-->
+<!--        android:layout_alignEnd="@id/blurTarget"-->
+<!--        android:layout_alignBottom="@id/blurTarget" />-->
 
 
 </RelativeLayout>

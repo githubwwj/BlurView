@@ -1,7 +1,6 @@
 package com.eightbitlab.blurview_sample;
 
 import android.os.Bundle;
-import android.view.View;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -17,7 +16,7 @@ public class ActivityBlurTest extends AppCompatActivity {
         setContentView(binding.getRoot());
         StatusBarsUtil.setEdgeToEdge(binding.getRoot());
 
-        binding.blurOverlayView.setupWith(binding.blurTarget, 20f);
+//        binding.blurOverlayView.setupWith(binding.blurTarget, 20f);
 
     }
 }
