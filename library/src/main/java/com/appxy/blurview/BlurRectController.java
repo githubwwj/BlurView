@@ -192,7 +192,7 @@ public final class BlurRectController implements BlurController {
         // 获取根视图和模糊图层在屏幕上的位置
         rootView.getLocationOnScreen(rootLocation);
         blurView.getLocationOnScreen(blurViewLocation);
-        blurViewLocation[0] = (int) blurRect.mRect.left;
+        blurViewLocation[0] = (int) blurRect.mRect.left + blurViewLocation[0];
         blurViewLocation[1] = (int) blurRect.mRect.top + blurViewLocation[1];
 
         // 模糊图层相对于根视图的左侧偏移量（水平方向）

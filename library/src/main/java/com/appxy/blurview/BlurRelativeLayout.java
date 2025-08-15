@@ -1,9 +1,5 @@
 package com.appxy.blurview;
 
-import static com.appxy.blurview.BlurController.DEFAULT_BLUR_RADIUS;
-import static com.appxy.blurview.BlurController.DEFAULT_SCALE_FACTOR;
-
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -16,16 +12,12 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.widget.RelativeLayout;
 
-import androidx.annotation.ColorInt;
-import androidx.annotation.NonNull;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 public class BlurRelativeLayout extends RelativeLayout {
     private BlurRectView currentSelected;
-
     private boolean isInCreationMode = false;
     private final RectF dragRect = new RectF();
     private final Paint previewPaint = new Paint();
@@ -49,13 +41,17 @@ public class BlurRelativeLayout extends RelativeLayout {
     private boolean isDragConfirmed = false;
     private boolean isClickCreateRect = false;
 
-    // 修复事件拦截问题
+    /**
+     * true拦截子控件事件
+     */
     private boolean interceptTouchEvent = false;
-    private BlurController blurController = new NoOpController();
-    @ColorInt
-    private int overlayColor;
-    private boolean blurAutoUpdate = true;
+
+    /**
+     * 相对布局模糊视图矩形
+     */
     private final RectF blurViewRect = new RectF();
+    private BlurTarget blurTarget;
+    private int radius;
 
     public BlurRelativeLayout(Context context) {
         super(context);
@@ -83,102 +79,6 @@ public class BlurRelativeLayout extends RelativeLayout {
         // 硬件加速开启
         setLayerType(LAYER_TYPE_HARDWARE, null);
     }
-
-    // ------------------------设置模糊图层的代码------------
-    public BlurViewFacade setupWith(@NonNull BlurTarget target, BlurAlgorithm algorithm, float scaleFactor,
-                                    float blurRadius, boolean applyNoise) {
-        blurController.destroy();
-        if (BlurTarget.canUseHardwareRendering) {
-            // Ignores the blur algorithm, always uses RenderEffect
-            blurController = new RenderNodeBlurController(this, target, overlayColor, scaleFactor, blurRadius, applyNoise);
-        } else {
-            blurController = new BlurRectController(this, target, overlayColor,
-                    algorithm, scaleFactor, blurRadius, applyNoise);
-        }
-        return blurController;
-    }
-
-    public BlurViewFacade setupWith(@NonNull BlurTarget rootView, float scaleFactor, float blurRadius, boolean applyNoise) {
-        BlurAlgorithm algorithm = new RenderScriptBlur(getContext());
-        return setupWith(rootView, algorithm, scaleFactor, blurRadius, applyNoise);
-    }
-
-    public BlurViewFacade setupWith(@NonNull BlurTarget rootView, float blurRadius) {
-        return setupWith(rootView, DEFAULT_SCALE_FACTOR, blurRadius, false);
-    }
-
-    public BlurViewFacade setupWith(@NonNull BlurTarget rootView) {
-        return setupWith(rootView, DEFAULT_BLUR_RADIUS);
-    }
-
-
-    @Override
-    protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
-        blurController.setBlurAutoUpdate(false);
-    }
-
-    @Override
-    protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-        blurController.setBlurAutoUpdate(this.blurAutoUpdate);
-    }
-
-    public BlurViewFacade setBlurRadius(float radius) {
-        return blurController.setBlurRadius(radius);
-    }
-
-    /**
-     * @see BlurViewFacade#setOverlayColor(int)
-     */
-    public BlurViewFacade setOverlayColor(@ColorInt int overlayColor) {
-        this.overlayColor = overlayColor;
-        return blurController.setOverlayColor(overlayColor);
-    }
-
-    /**
-     * @see BlurViewFacade#setBlurAutoUpdate(boolean)
-     */
-    public BlurViewFacade setBlurAutoUpdate(boolean enabled) {
-        this.blurAutoUpdate = enabled;
-        return blurController.setBlurAutoUpdate(enabled);
-    }
-
-    public BlurViewFacade setBlurEnabled(boolean enabled) {
-        return blurController.setBlurEnabled(enabled);
-    }
-
-    @Override
-    public void setRotation(float rotation) {
-        super.setRotation(rotation);
-        notifyRotationChanged(rotation);
-    }
-
-    @SuppressLint("NewApi")
-    public void notifyRotationChanged(float rotation) {
-        if (usingRenderNode()) {
-            ((RenderNodeBlurController) blurController).updateRotation(rotation);
-        }
-    }
-
-    @SuppressLint("NewApi")
-    public void notifyScaleXChanged(float scaleX) {
-        if (usingRenderNode()) {
-            ((RenderNodeBlurController) blurController).updateScaleX(scaleX);
-        }
-    }
-
-    @SuppressLint("NewApi")
-    public void notifyScaleYChanged(float scaleY) {
-        if (usingRenderNode()) {
-            ((RenderNodeBlurController) blurController).updateScaleY(scaleY);
-        }
-    }
-
-    private boolean usingRenderNode() {
-        return blurController instanceof RenderNodeBlurController;
-    }
-    // ------------------------设置模糊图层的代码------------
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent event) {
@@ -218,8 +118,6 @@ public class BlurRelativeLayout extends RelativeLayout {
                 isClickCreateRect = true;
             }
         }
-
-        // 只在创建模式下拦截事件
         return interceptTouchEvent;
     }
 
@@ -354,8 +252,8 @@ public class BlurRelativeLayout extends RelativeLayout {
     public void addBlurRect(RectF viewRectF) {
         deselect();
         // 创建并添加模糊视图
-        BlurRectView blurRect = new BlurRectView(getContext(), viewRectF, blurViewRect, blurController);
-        blurRect.setSelected(true);
+        BlurRectView blurRect = new BlurRectView(getContext(), viewRectF, blurViewRect);
+        blurRect.setupWith(blurTarget, radius);
         blurRect.setBlurRectListener(new BlurRectView.BlurRectListener() {
             @Override
             public void onDelete(BlurRectView view) {
@@ -430,6 +328,11 @@ public class BlurRelativeLayout extends RelativeLayout {
             currentSelected.setSelected(false);
             currentSelected = null;
         }
+    }
+
+    public void setupWith(BlurTarget blurTarget, int radius) {
+        this.blurTarget = blurTarget;
+        this.radius = radius;
     }
 
 }

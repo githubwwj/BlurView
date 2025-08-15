@@ -1,5 +1,8 @@
 package com.appxy.blurview;
 
+import static com.appxy.blurview.BlurController.DEFAULT_BLUR_RADIUS;
+import static com.appxy.blurview.BlurController.DEFAULT_SCALE_FACTOR;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -13,7 +16,9 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.RelativeLayout;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 
 import com.appxy.tinyscanner.R;
@@ -22,8 +27,9 @@ public class BlurRectView extends View {
 
     // 矩形边框
     private final RectF viewRect = new RectF();
-    private final RectF mDrawRect = new RectF(0, 0, 0, 0); // 绘制时的相对坐标
+    private final RectF drawRect = new RectF(0, 0, 0, 0); // 绘制时的相对坐标
     private final RectF parentViewRect;
+    private BlurTarget blurTarget;
 
     private BlurRect mBlurRect = null;
 
@@ -72,12 +78,15 @@ public class BlurRectView extends View {
     private float initialTouchX, initialTouchY; // 初始触摸点的绝对坐标（屏幕坐标）
     private float initialLeft, initialTop; // 初始视图的left和top（父容器坐标）
 
-    public BlurRectView(Context context, RectF initRect, RectF parentViewRect, BlurController blurController) {
+    @ColorInt
+    private int overlayColor;
+    private boolean blurAutoUpdate = true;
+
+    public BlurRectView(Context context, RectF viewRectF, RectF parentViewRect) {
         super(context);
-        this.blurController = blurController;
         this.parentViewRect = parentViewRect;
-        this.viewRect.set(initRect);
-        this.mDrawRect.set(0, 0, initRect.width(), initRect.height());
+        this.viewRect.set(viewRectF);
+        this.drawRect.set(0, 0, viewRectF.width(), viewRectF.height());
         init();
     }
 
@@ -135,24 +144,9 @@ public class BlurRectView extends View {
         resizeDotPaint.setStyle(Paint.Style.FILL);
         resizeDotPaint.setAntiAlias(true);
 
-        // 菜单位置（根据模糊区域中心与页面中心的关系）
-        float screenCenterY = parentViewRect.height() / 2f;
-        float centerY = viewRect.centerY();
-        float blurRectTop;
-        float blurRectBottom;
-        if (centerY < screenCenterY) {
-            // 在屏幕上半部分，菜单显示在下方（在矩形边框线下方）
-            blurRectTop = blurMargin;
-            blurRectBottom = mDrawRect.height() - menuHeightSpace;
-        } else {
-            // 在屏幕下半部分，菜单显示在上方（在矩形边框线上方）
-            blurRectTop = menuHeightSpace;
-            blurRectBottom = mDrawRect.height() - blurMargin;
-        }
-        addBlurRect(blurMargin, blurRectTop, viewRect.width() - blurMargin, blurRectBottom);
-
         // 硬件加速开启
         setLayerType(LAYER_TYPE_HARDWARE, null);
+        setSelected(true);
     }
 
     // 高效命中测试方法
@@ -160,46 +154,9 @@ public class BlurRectView extends View {
         // 转换为视图局部坐标
         float localX = parentX - getLeft();
         float localY = parentY - getTop();
-        return mDrawRect.contains(localX, localY);
+        return drawRect.contains(localX, localY);
     }
 
-    @Override
-    protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
-        mBlurRect = null;
-    }
-
-    @Override
-    public void setRotation(float rotation) {
-        super.setRotation(rotation);
-        notifyRotationChanged(rotation);
-    }
-
-    @SuppressLint("NewApi")
-    public void notifyRotationChanged(float rotation) {
-        if (usingRenderNode()) {
-            ((RenderNodeBlurController) blurController).updateRotation(rotation);
-        }
-    }
-
-    @SuppressLint("NewApi")
-    public void notifyScaleXChanged(float scaleX) {
-        if (usingRenderNode()) {
-            ((RenderNodeBlurController) blurController).updateScaleX(scaleX);
-        }
-    }
-
-    @SuppressLint("NewApi")
-    public void notifyScaleYChanged(float scaleY) {
-        if (usingRenderNode()) {
-            ((RenderNodeBlurController) blurController).updateScaleY(scaleY);
-        }
-    }
-
-    private boolean usingRenderNode() {
-        return blurController instanceof RenderNodeBlurController;
-    }
-    // ------------------------设置模糊图层的代码------------
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
@@ -357,6 +314,7 @@ public class BlurRectView extends View {
 
     /**
      * 判断视图是否完全移出屏幕（不可见或超出屏幕边界）
+     *
      * @return true：已移出屏幕；false：在屏幕内可见
      */
     private boolean isOffScreen(float viewX, float viewY) {
@@ -391,8 +349,22 @@ public class BlurRectView extends View {
 
 
     // 添加新模糊矩形
-    private void addBlurRect(float left, float top, float right, float bottom) {
-        mBlurRect = new BlurRect(left, top, right, bottom);
+    public void addBlurRect() {
+        // 菜单位置（根据模糊区域中心与页面中心的关系）
+        float screenCenterY = parentViewRect.height() / 2f;
+        float centerY = viewRect.centerY();
+        float blurRectTop;
+        float blurRectBottom;
+        if (centerY < screenCenterY) {
+            // 在屏幕上半部分，菜单显示在下方（在矩形边框线下方）
+            blurRectTop = blurMargin;
+            blurRectBottom = drawRect.height() - menuHeightSpace;
+        } else {
+            // 在屏幕下半部分，菜单显示在上方（在矩形边框线上方）
+            blurRectTop = menuHeightSpace;
+            blurRectBottom = drawRect.height() - blurMargin;
+        }
+        mBlurRect = new BlurRect(blurMargin, blurRectTop, viewRect.width() - blurMargin, blurRectBottom);
         blurController.addBlurRect(mBlurRect);
     }
 
@@ -986,5 +958,103 @@ public class BlurRectView extends View {
             return rotation;
         }
     }
+
+    // ------------------------设置模糊图层的代码------------
+    public BlurViewFacade setupWith(@NonNull BlurTarget target, BlurAlgorithm algorithm, float scaleFactor,
+                                    float blurRadius, boolean applyNoise) {
+        if (BlurTarget.canUseHardwareRendering) {
+            // Ignores the blur algorithm, always uses RenderEffect
+            blurController = new RenderNodeBlurController(this, target, overlayColor, scaleFactor, blurRadius, applyNoise);
+        } else {
+            blurController = new BlurRectController(this, target, overlayColor,
+                    algorithm, scaleFactor, blurRadius, applyNoise);
+        }
+        addBlurRect();
+        return blurController;
+    }
+
+    public BlurViewFacade setupWith(@NonNull BlurTarget rootView, float scaleFactor, float blurRadius, boolean applyNoise) {
+        BlurAlgorithm algorithm = new RenderScriptBlur(getContext());
+        return setupWith(rootView, algorithm, scaleFactor, blurRadius, applyNoise);
+    }
+
+    public BlurViewFacade setupWith(@NonNull BlurTarget rootView, float blurRadius) {
+        return setupWith(rootView, DEFAULT_SCALE_FACTOR, blurRadius, false);
+    }
+
+    public BlurViewFacade setupWith(@NonNull BlurTarget rootView) {
+        this.blurTarget = rootView;
+        return setupWith(rootView, DEFAULT_BLUR_RADIUS);
+    }
+
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        blurController.destroy();
+        mBlurRect = null;
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        blurController.setBlurAutoUpdate(this.blurAutoUpdate);
+    }
+
+    public BlurViewFacade setBlurRadius(float radius) {
+        return blurController.setBlurRadius(radius);
+    }
+
+    /**
+     * @see BlurViewFacade#setOverlayColor(int)
+     */
+    public BlurViewFacade setOverlayColor(@ColorInt int overlayColor) {
+        this.overlayColor = overlayColor;
+        return blurController.setOverlayColor(overlayColor);
+    }
+
+    /**
+     * @see BlurViewFacade#setBlurAutoUpdate(boolean)
+     */
+    public BlurViewFacade setBlurAutoUpdate(boolean enabled) {
+        this.blurAutoUpdate = enabled;
+        return blurController.setBlurAutoUpdate(enabled);
+    }
+
+    public BlurViewFacade setBlurEnabled(boolean enabled) {
+        return blurController.setBlurEnabled(enabled);
+    }
+
+    @Override
+    public void setRotation(float rotation) {
+        super.setRotation(rotation);
+        notifyRotationChanged(rotation);
+    }
+
+    @SuppressLint("NewApi")
+    public void notifyRotationChanged(float rotation) {
+        if (usingRenderNode()) {
+            ((RenderNodeBlurController) blurController).updateRotation(rotation);
+        }
+    }
+
+    @SuppressLint("NewApi")
+    public void notifyScaleXChanged(float scaleX) {
+        if (usingRenderNode()) {
+            ((RenderNodeBlurController) blurController).updateScaleX(scaleX);
+        }
+    }
+
+    @SuppressLint("NewApi")
+    public void notifyScaleYChanged(float scaleY) {
+        if (usingRenderNode()) {
+            ((RenderNodeBlurController) blurController).updateScaleY(scaleY);
+        }
+    }
+
+    private boolean usingRenderNode() {
+        return blurController instanceof RenderNodeBlurController;
+    }
+    // ------------------------设置模糊图层的代码------------
 
 }

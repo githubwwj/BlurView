@@ -62,8 +62,7 @@ public class RenderScriptBlur implements BlurAlgorithm {
     }
 
     private boolean canReuseAllocation(Bitmap bitmap) {
-        return bitmap != null &&
-                outAllocation != null &&
+        return bitmap != null && outAllocation != null &&
                 bitmap.getWidth() == lastBitmapWidth &&
                 bitmap.getHeight() == lastBitmapHeight &&
                 bitmap.getConfig() == lastBitmapConfig;
