@@ -7,6 +7,7 @@ import android.graphics.Paint;
 import android.graphics.PointF;
 import android.graphics.RectF;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.RelativeLayout;
@@ -23,7 +24,7 @@ public class BlurRectView extends View {
     private static final int BUTTON_COPY = 4;
 
     private int currentAction = NONE;
-    private PointF lastTouchPoint = new PointF(); // 用于记录局部坐标的最后触摸点
+    private final PointF lastTouchPoint = new PointF(); // 用于记录局部坐标的最后触摸点
     private float initialTouchX, initialTouchY; // 初始触摸点的绝对坐标（屏幕坐标）
     private float initialLeft, initialTop; // 初始视图的left和top（父容器坐标）
 
@@ -40,12 +41,19 @@ public class BlurRectView extends View {
     private final RectF copyButtonRect = new RectF();
     private final RectF resizeHandleRect = new RectF();
 
+    // 新增成员变量（替代 onDraw 中临时创建的 Paint）
+    private final Paint borderPaint = new Paint();
+    private final Paint buttonPaint = new Paint();
+
     private final Paint blurPaint = new Paint();
+    private RelativeLayout.LayoutParams layoutParams;
 
     public interface BlurRectListener {
         void onDelete(BlurRectView view);
+
         void onCopy(BlurRectView view);
     }
+
     private BlurRectListener listener;
 
     public BlurRectView(Context context, RectF initRect) {
@@ -63,12 +71,23 @@ public class BlurRectView extends View {
     private void init() {
         setLayerType(LAYER_TYPE_HARDWARE, null);
         blurPaint.setColor(RED_COLOR);
+
+        // 初始化固定 Paint 属性（仅需一次）
+        borderPaint.setColor(BORDER_COLOR);
+        borderPaint.setStyle(Paint.Style.STROKE);
+        borderPaint.setStrokeWidth(BORDER_WIDTH);
+        borderPaint.setAntiAlias(true); // 抗锯齿优化
+
+        buttonPaint.setColor(BUTTON_COLOR);
+        buttonPaint.setAntiAlias(true); // 抗锯齿优化
     }
 
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
         // 更新视图尺寸
+        Log.d("log", "--------BlurRectView-------onLayout");
+        layoutParams = (RelativeLayout.LayoutParams) getLayoutParams();
         if (changed) {
             drawRect.set(0, 0, getWidth(), getHeight());
         }
@@ -82,16 +101,10 @@ public class BlurRectView extends View {
         canvas.drawRect(drawRect, blurPaint);
 
         if (isSelected) {
-            Paint borderPaint = new Paint();
-            borderPaint.setColor(BORDER_COLOR);
-            borderPaint.setStyle(Paint.Style.STROKE);
-            borderPaint.setStrokeWidth(BORDER_WIDTH);
             canvas.drawRect(drawRect, borderPaint);
 
             calculateControlPoints();
 
-            Paint buttonPaint = new Paint();
-            buttonPaint.setColor(BUTTON_COLOR);
             canvas.drawRect(deleteButtonRect, buttonPaint);
             canvas.drawRect(copyButtonRect, buttonPaint);
             canvas.drawRect(resizeHandleRect, buttonPaint);
@@ -109,8 +122,8 @@ public class BlurRectView extends View {
         );
 
         copyButtonRect.set(
-                viewWidth - 2 * BUTTON_SIZE, 0,
-                viewWidth - BUTTON_SIZE, BUTTON_SIZE
+                viewWidth - 3 * BUTTON_SIZE, 0,
+                viewWidth - 2 * BUTTON_SIZE, BUTTON_SIZE
         );
 
         resizeHandleRect.set(
@@ -134,7 +147,6 @@ public class BlurRectView extends View {
             // 未选中时只消费DOWN事件
             return event.getAction() == MotionEvent.ACTION_DOWN;
         }
-
         // 获取触摸点坐标（视图局部坐标）
         float x = event.getX();
         float y = event.getY();
@@ -209,31 +221,42 @@ public class BlurRectView extends View {
     }
 
     private void updateViewPosition(float totalDx, float totalDy) {
-        // 直接更新布局参数的margin，避免使用translation
-        RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) getLayoutParams();
-        if (params != null) {
-            params.leftMargin = (int) (initialLeft + totalDx);
-            params.topMargin = (int) (initialTop + totalDy);
-            setLayoutParams(params);
+        RelativeLayout.LayoutParams params = layoutParams;
+        if (params == null) {
+            return;
         }
+        // 计算新的 left/top
+        int newLeft = (int) (initialLeft + totalDx);
+        int newTop = (int) (initialTop + totalDy);
+        params.leftMargin = newLeft;
+        params.topMargin = newTop;
+        setLayoutParams(params);
+
+        // 同步更新 viewRect 的位置（关键优化）
+        viewRect.left = newLeft;
+        viewRect.top = newTop;
+        // 宽高不变（移动不改变尺寸）
+        viewRect.right = newLeft + viewRect.width();
+        viewRect.bottom = newTop + viewRect.height();
     }
 
+    // 在 handleResize 中同步更新 viewRect
     private void handleResize(float localDx, float localDy) {
-        // 使用局部坐标的增量调整绘制区域
-        drawRect.right = Math.max(50, drawRect.right + localDx); // 最小50px
-        drawRect.bottom = Math.max(50, drawRect.bottom + localDy);
+        // 调整绘制区域的右下角（局部坐标增量直接影响宽高）
+        drawRect.right += localDx;
+        drawRect.bottom += localDy;
 
-        // 更新布局参数的宽高
-        RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) getLayoutParams();
-        if (params != null) {
-            params.width = (int) drawRect.width();
-            params.height = (int) drawRect.height();
-        }
+        // 更新布局参数的宽高（必须，否则视图不会实际改变大小）
+        RelativeLayout.LayoutParams params = layoutParams;
+        if (params == null) return;
+        params.width = (int) drawRect.width();
+        params.height = (int) drawRect.height();
+        setLayoutParams(params);
 
-        // 请求父容器更新布局
-        if (getParent() instanceof BlurRelativeLayout) {
-            ((BlurRelativeLayout) getParent()).requestLayoutUpdate();
-        }
+        // 同步更新 viewRect 的实际尺寸（关键优化：保持与布局一致）
+        // 注意：viewRect 的 left/top 未变（仅调整右下角），因此只需更新 right/bottom
+        viewRect.right = viewRect.left + params.width;
+        viewRect.bottom = viewRect.top + params.height;
     }
 
     public void setSelected(boolean selected) {
@@ -252,15 +275,13 @@ public class BlurRectView extends View {
     // 更新视图位置和尺寸
     public void updateLayout(RectF rect) {
         this.viewRect.set(rect);
-        if (getLayoutParams() == null) return;
-
-        getLayoutParams().width = (int) rect.width();
-        getLayoutParams().height = (int) rect.height();
-
-        if (getLayoutParams() instanceof RelativeLayout.LayoutParams) {
-            RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) getLayoutParams();
-            params.leftMargin = (int) rect.left;
-            params.topMargin = (int) rect.top;
-        }
+        RelativeLayout.LayoutParams params = layoutParams;
+        if (params == null) return;
+        params.leftMargin = (int) rect.left;
+        params.topMargin = (int) rect.top;
+        params.width = (int) rect.width();
+        params.height = (int) rect.height();
+        setLayoutParams(params);
     }
+
 }

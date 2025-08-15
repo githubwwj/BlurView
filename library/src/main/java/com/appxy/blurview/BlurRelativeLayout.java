@@ -20,17 +20,12 @@ public class BlurRelativeLayout extends RelativeLayout {
     private final RectF creationRect = new RectF();
     private final Paint previewPaint = new Paint();
 
-    // 添加阈值防止误触发
-    private static final float MIN_RECT_SIZE = 50f;
     private float SLOP_PX = 10f;
     private PointF dragStartPoint = new PointF();
     /**
      * 检查是否达到拖动阈值
      */
     private boolean isDragConfirmed = false;
-
-    // 性能优化：避免频繁布局
-    private boolean layoutChanged = false;
 
     // 修复事件拦截问题
     private boolean interceptTouchEvent = false;
@@ -103,8 +98,10 @@ public class BlurRelativeLayout extends RelativeLayout {
                 return true;
 
             case MotionEvent.ACTION_MOVE:
-                float dx = Math.abs(event.getX() - dragStartPoint.x);
-                float dy = Math.abs(event.getY() - dragStartPoint.y);
+                float currentX = event.getX();
+                float currentY = event.getY();
+                float dx = Math.abs(currentX - dragStartPoint.x);
+                float dy = Math.abs(currentY - dragStartPoint.y);
 
                 // 检查是否达到拖动阈值
                 if (!isDragConfirmed) {
@@ -115,25 +112,21 @@ public class BlurRelativeLayout extends RelativeLayout {
                     }
                 }
 
-                creationRect.right = event.getX();
-                creationRect.bottom = event.getY();
-                creationRect.sort(); // 保证坐标顺序正确
+                // 手动调整矩形坐标，确保left <= right，top <= bottom
+                float left = Math.min(dragStartPoint.x, currentX);
+                float top = Math.min(dragStartPoint.y, currentY);
+                float right = Math.max(dragStartPoint.x, currentX);
+                float bottom = Math.max(dragStartPoint.y, currentY);
+                creationRect.set(left, top, right, bottom);
 
                 // 只重绘受影响区域
-                invalidate(
-                        (int) Math.min(creationRect.left, dragStartPoint.x) - 10,
-                        (int) Math.min(creationRect.top, dragStartPoint.y) - 10,
-                        (int) Math.max(creationRect.right, dragStartPoint.x) + 10,
-                        (int) Math.max(creationRect.bottom, dragStartPoint.y) + 10
-                );
+                invalidate();
                 return true;
 
             case MotionEvent.ACTION_UP:
                 if (isDragConfirmed) {
                     // 确保矩形大小有效
-                    if (creationRect.width() > MIN_RECT_SIZE && creationRect.height() > MIN_RECT_SIZE) {
-                        addBlurRect(new RectF(creationRect));
-                    }
+                    addBlurRect(new RectF(creationRect));
                 }
                 isInCreationMode = false;
                 interceptTouchEvent = false; // 重置拦截标志
@@ -191,33 +184,6 @@ public class BlurRelativeLayout extends RelativeLayout {
         blurRects.add(blurRect);
         addView(blurRect);
         currentSelected = blurRect;
-    }
-
-    // 优化布局更新
-    @Override
-    protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        super.onLayout(changed, l, t, r, b);
-
-        // 只有在布局真正改变时才更新
-        if (layoutChanged) {
-            for (BlurRectView view : blurRects) {
-                MarginLayoutParams params = (MarginLayoutParams) view.getLayoutParams();
-                RectF viewRect = new RectF(
-                        params.leftMargin,
-                        params.topMargin,
-                        params.leftMargin + params.width,
-                        params.topMargin + params.height
-                );
-                view.updateLayout(viewRect);
-            }
-            layoutChanged = false;
-        }
-    }
-
-    // 标记布局需要更新
-    public void requestLayoutUpdate() {
-        layoutChanged = true;
-        requestLayout();
     }
 
     private void removeBlurRect(BlurRectView view) {
