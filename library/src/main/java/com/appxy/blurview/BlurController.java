@@ -20,12 +20,7 @@ public interface BlurController extends BlurViewFacade {
      */
     void updateBlurViewSize();
 
-    default void addBlurRect(BlurOverlayView.BlurRect blurRect) {
-
-    }
-
     default void setBlurRect(BlurOverlayView.BlurRect blurRect) {
-
     }
 
     /**

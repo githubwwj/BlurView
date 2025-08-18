@@ -10,12 +10,14 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
@@ -26,7 +28,6 @@ import com.appxy.tinyscanner.R;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public class BlurOverlayView extends View {
 
@@ -35,18 +36,21 @@ public class BlurOverlayView extends View {
 
     // 模糊图层管理
     private final List<BlurRect> blurRectList = new ArrayList<>();
-    private BlurRect selectedRect = null;
+    private BlurRect selectedBlurRect = null;
 
     // 触摸状态
     private static final int MODE_NONE = 0;
     private static final int MODE_MOVE = 1;
     private static final int MODE_ROTATE = 2;
+    private static final int MODE_ADD_CLICK = 3;
     private static final int MODE_ADD_BY_DRAG = 4;
     private static final int MODE_RESIZE = 5;
     private static final int MODE_DELETED = 6;
     private int touchMode = MODE_NONE;
+    private final PointF dragStartPoint = new PointF();
     private float lastX, lastY;
     private final RectF dragRect = new RectF();
+    private float SLOP_PX = 10f;
 
     // 尺寸转换
     private float defaultSize;
@@ -77,8 +81,7 @@ public class BlurOverlayView extends View {
     private Paint resizeDotPaint; // 调整大小手柄画笔
 
     private BlurController blurController = new NoOpController();
-    @ColorInt
-    private int overlayColor;
+    private int overlayColor = Color.parseColor("#78ffffff");
     private boolean blurAutoUpdate = true;
 
     public BlurOverlayView(Context context) {
@@ -125,10 +128,13 @@ public class BlurOverlayView extends View {
         resizeDotPaint.setStyle(Paint.Style.FILL);
         resizeDotPaint.setAntiAlias(true);
 
+        // 添加触摸灵敏度设置
+        ViewConfiguration vc = ViewConfiguration.get(getContext());
+        SLOP_PX = vc.getScaledTouchSlop();
+
         // 硬件加速开启
         setLayerType(LAYER_TYPE_HARDWARE, null);
     }
-
 
     // ------------------------设置模糊图层的代码------------
     public BlurViewFacade setupWith(@NonNull BlurTarget target, BlurAlgorithm algorithm, float scaleFactor,
@@ -138,8 +144,7 @@ public class BlurOverlayView extends View {
             // Ignores the blur algorithm, always uses RenderEffect
             blurController = new RenderNodeBlurController(this, target, overlayColor, scaleFactor, blurRadius, applyNoise);
         } else {
-            blurController = new BlurRectController(this, target, overlayColor,
-                    algorithm, scaleFactor, blurRadius, applyNoise);
+            blurController = new BlurRectController(this, target, overlayColor, algorithm, scaleFactor, blurRadius, applyNoise);
         }
         return blurController;
     }
@@ -156,7 +161,6 @@ public class BlurOverlayView extends View {
     public BlurViewFacade setupWith(@NonNull BlurTarget rootView) {
         return setupWith(rootView, DEFAULT_BLUR_RADIUS);
     }
-
 
     @Override
     protected void onDetachedFromWindow() {
@@ -253,7 +257,7 @@ public class BlurOverlayView extends View {
                 boolean showButtons = touchMode != MODE_MOVE &&
                         touchMode != MODE_ROTATE &&
                         touchMode != MODE_RESIZE;
-                rect.draw(canvas, rect == selectedRect, showButtons);
+                rect.draw(canvas, rect == selectedBlurRect, showButtons);
             }
         }
 
@@ -273,17 +277,6 @@ public class BlurOverlayView extends View {
         previewPaint.setColor(Color.WHITE);
         previewPaint.setStrokeWidth(1 * density);
         canvas.drawRect(dragRect, previewPaint);
-
-        // 绘制尺寸提示
-        previewPaint.setColor(Color.WHITE);
-        previewPaint.setTextSize(28);
-
-        String sizeText = String.format(Locale.getDefault(), "%.0f×%.0f", dragRect.width(), dragRect.height());
-        float textWidth = previewPaint.measureText(sizeText);
-
-        canvas.drawText(sizeText,
-                dragRect.centerX() - textWidth / 2,
-                dragRect.centerY() + previewPaint.getTextSize() / 2, previewPaint);
     }
 
     @Override
@@ -306,7 +299,7 @@ public class BlurOverlayView extends View {
 
             case MotionEvent.ACTION_CANCEL:
                 touchMode = MODE_NONE;
-                selectedRect = null;
+                selectedBlurRect = null;
                 invalidate(); // 确保重绘
                 return true;
         }
@@ -316,15 +309,16 @@ public class BlurOverlayView extends View {
     private void handleTouchDown(float x, float y) {
         lastX = x;
         lastY = y;
+        dragStartPoint.set(x, y);
 
         // 1. 检查是否点中操作按钮
-        if (selectedRect != null && selectedRect.isVisible(borderRect)) {
-            if (selectedRect.isInCopyButton(x, y)) {
+        if (selectedBlurRect != null && selectedBlurRect.isVisible(borderRect)) {
+            if (selectedBlurRect.isInCopyButton(x, y)) {
                 copySelectedRect();
                 touchMode = MODE_NONE;
                 return;
             }
-            if (selectedRect.isInDeleteButton(x, y)) {
+            if (selectedBlurRect.isInDeleteButton(x, y)) {
                 deleteSelectedRect();
                 touchMode = MODE_DELETED;
                 return;
@@ -332,30 +326,30 @@ public class BlurOverlayView extends View {
         }
 
         // 2. 检查是否点中旋转手柄
-        if (selectedRect != null && selectedRect.isVisible(borderRect) && selectedRect.isInRotateHandle(x, y)) {
+        if (selectedBlurRect != null && selectedBlurRect.isVisible(borderRect) && selectedBlurRect.isInRotateHandle(x, y)) {
             touchMode = MODE_ROTATE;
             // 记录初始旋转角度
-            selectedRect.startRotation = selectedRect.rotation;
+            selectedBlurRect.startRotation = selectedBlurRect.rotation;
             // 计算初始角度（相对于矩形中心）
-            float centerX = selectedRect.mRect.centerX();
-            float centerY = selectedRect.mRect.centerY();
-            selectedRect.startAngle = (float) Math.toDegrees(Math.atan2(y - centerY, x - centerX));
+            float centerX = selectedBlurRect.mRect.centerX();
+            float centerY = selectedBlurRect.mRect.centerY();
+            selectedBlurRect.startAngle = (float) Math.toDegrees(Math.atan2(y - centerY, x - centerX));
             return;
         }
 
         // 3. 检查是否点中调整手柄
-        if (selectedRect != null && selectedRect.isVisible(borderRect) && selectedRect.isInResizeHandle(x, y)) {
+        if (selectedBlurRect != null && selectedBlurRect.isVisible(borderRect) && selectedBlurRect.isInResizeHandle(x, y)) {
             touchMode = MODE_RESIZE;
-            selectedRect.resizeHandleType = selectedRect.getResizeHandleType(x, y);
-            selectedRect.initResizeState(x, y); // 初始化调整状态
+            selectedBlurRect.resizeHandleType = selectedBlurRect.getResizeHandleType(x, y);
+            selectedBlurRect.initResizeState(x, y); // 初始化调整状态
             return;
         }
 
         // 4. 检查是否点中矩形边框线（附近）
-        if (selectedRect != null && selectedRect.isVisible(borderRect) && selectedRect.isOnBorder(x, y)) {
+        if (selectedBlurRect != null && selectedBlurRect.isVisible(borderRect) && selectedBlurRect.isOnBorder(x, y)) {
             touchMode = MODE_RESIZE;
-            selectedRect.resizeHandleType = selectedRect.getBorderHandleType(x, y);
-            selectedRect.initResizeState(x, y); // 初始化调整状态
+            selectedBlurRect.resizeHandleType = selectedBlurRect.getBorderHandleType(x, y);
+            selectedBlurRect.initResizeState(x, y); // 初始化调整状态
             return;
         }
 
@@ -363,7 +357,7 @@ public class BlurOverlayView extends View {
         for (int i = blurRectList.size() - 1; i >= 0; i--) {
             BlurRect rect = blurRectList.get(i);
             if (rect.isVisible(borderRect) && rect.contains(x, y)) {
-                selectedRect = rect;
+                selectedBlurRect = rect;
                 blurController.setBlurRect(rect);
                 touchMode = MODE_MOVE;
                 invalidate();
@@ -372,57 +366,59 @@ public class BlurOverlayView extends View {
         }
 
         // 6. 如果没有点中任何矩形，开始添加新矩形
-        touchMode = MODE_ADD_BY_DRAG;
+        touchMode = MODE_ADD_CLICK;
         dragRect.set(x, y, x, y);
     }
 
     private void handleTouchMove(float x, float y) {
-        float dx = x - lastX;
-        float dy = y - lastY;
-
         switch (touchMode) {
             case MODE_MOVE:
-                if (selectedRect != null) {
-                    // 允许移动到边界外
-                    selectedRect.mRect.offset(dx, dy);
+                if (selectedBlurRect != null) {
+                    float dx = x - lastX;
+                    float dy = y - lastY;
+                    selectedBlurRect.mRect.offset(dx, dy);
                     invalidate();
                 }
                 break;
 
             case MODE_ROTATE:
-                if (selectedRect != null && selectedRect.isVisible(borderRect)) {
-                    float centerX = selectedRect.mRect.centerX();
-                    float centerY = selectedRect.mRect.centerY();
+                if (selectedBlurRect != null && selectedBlurRect.isVisible(borderRect)) {
+                    float centerX = selectedBlurRect.mRect.centerX();
+                    float centerY = selectedBlurRect.mRect.centerY();
                     // 计算当前角度（相对于矩形中心）
                     float currentAngle = (float) Math.toDegrees(Math.atan2(y - centerY, x - centerX));
                     // 计算旋转角度（相对于初始角度）
-                    float rotationAngle = currentAngle - selectedRect.startAngle;
+                    float rotationAngle = currentAngle - selectedBlurRect.startAngle;
                     // 应用旋转（基于初始旋转角度）
-                    selectedRect.setRotation(selectedRect.startRotation + rotationAngle);
+                    selectedBlurRect.setRotation(selectedBlurRect.startRotation + rotationAngle);
                     invalidate();
                 }
                 break;
 
-            case MODE_ADD_BY_DRAG:
-                dragRect.right = x;
-                dragRect.bottom = y;
-                // 确保矩形不为负
-                if (dragRect.left > dragRect.right) {
-                    float temp = dragRect.left;
-                    dragRect.left = dragRect.right;
-                    dragRect.right = temp;
+            case MODE_ADD_CLICK:
+                float dx = Math.abs(x - dragStartPoint.x);
+                float dy = Math.abs(y - dragStartPoint.y);
+                if (dx > SLOP_PX || dy > SLOP_PX) {
+                    touchMode = MODE_ADD_BY_DRAG;
                 }
-                if (dragRect.top > dragRect.bottom) {
-                    float temp = dragRect.top;
-                    dragRect.top = dragRect.bottom;
-                    dragRect.bottom = temp;
-                }
+                float left = Math.min(dragStartPoint.x, x);
+                float top = Math.min(dragStartPoint.y, y);
+                float right = Math.max(dragStartPoint.x, x);
+                float bottom = Math.max(dragStartPoint.y, y);
+                dragRect.set(left, top, right, bottom);
                 invalidate();
                 break;
-
+            case MODE_ADD_BY_DRAG:
+                left = Math.min(dragStartPoint.x, x);
+                top = Math.min(dragStartPoint.y, y);
+                right = Math.max(dragStartPoint.x, x);
+                bottom = Math.max(dragStartPoint.y, y);
+                dragRect.set(left, top, right, bottom);
+                invalidate();
+                break;
             case MODE_RESIZE:
-                if (selectedRect != null && selectedRect.isVisible(borderRect)) {
-                    selectedRect.resize(x, y, borderRect);
+                if (selectedBlurRect != null && selectedBlurRect.isVisible(borderRect)) {
+                    selectedBlurRect.resize(x, y, borderRect);
                     invalidate();
                 }
                 break;
@@ -434,12 +430,27 @@ public class BlurOverlayView extends View {
 
     private void handleTouchUp(float x, float y) {
         if (touchMode == MODE_ADD_BY_DRAG) {
-            // 添加拖动创建的矩形
-            addBlurRect(dragRect.left, dragRect.top, dragRect.right, dragRect.bottom);
+            RectF selectionRect = new RectF(dragRect);
+            addBlurRect(selectionRect);
+        } else if (touchMode == MODE_ADD_CLICK) {
+            RectF selectionRect = new RectF();
+            dragRect.set(x, y, x, y);
+            // 菜单位置（根据模糊区域中心与页面中心的关系）
+            selectionRect.top = dragRect.top - defaultSize / 2;
+            selectionRect.bottom = dragRect.bottom + defaultSize / 2;
+            selectionRect.left = dragRect.left - defaultSize / 2;
+            selectionRect.right = dragRect.right + defaultSize / 2;
+            addBlurRect(selectionRect);
         } else if (touchMode == MODE_MOVE || touchMode == MODE_RESIZE) {
+            if (MODE_RESIZE == touchMode) {
+                Log.d("log", "------touchMode=调整大小");
+            } else if (MODE_MOVE == touchMode) {
+                Log.d("log", "------touchMode=移动");
+            }
             // 检查矩形是否完全移出边界
-            if (selectedRect != null && selectedRect.isOutside(borderRect)) {
+            if (selectedBlurRect != null && selectedBlurRect.isOutside(borderRect)) {
                 deleteSelectedRect();
+                Log.d("log", "------deleteSelectedRect");
             }
         }
 
@@ -462,38 +473,31 @@ public class BlurOverlayView extends View {
     }
 
     // 添加新模糊矩形
-    public void addBlurRect(float left, float top, float right, float bottom) {
-        BlurRect rect = new BlurRect(left, top, right, bottom);
-        rect.constrainToBounds(borderRect, defaultSize); // 确保在边界内
+    public void addBlurRect(RectF selectionRect) {
+        BlurRect rect = new BlurRect(selectionRect);
         blurRectList.add(rect);
-        selectedRect = rect;
-        blurController.addBlurRect(rect);
+        selectedBlurRect = rect;
     }
 
     // 复制选中矩形
     public void copySelectedRect() {
-        if (selectedRect != null && selectedRect.isVisible(borderRect)) {
-            BlurRect copy = new BlurRect(selectedRect);
+        if (selectedBlurRect != null && selectedBlurRect.isVisible(borderRect)) {
+            BlurRect copy = new BlurRect(selectedBlurRect);
             // 向右下偏移
             copy.mRect.offset(copyRectOffset, copyRectOffset);
-            if (selectedRect.mRect.width() >= defaultSize) {
-                copy.constrainToBounds(borderRect, defaultSize); // 确保在边界内
-            } else {
-                copy.constrainToBounds(borderRect, rectMin); // 确保在边界内
-            }
             blurRectList.add(copy);
-            blurController.addBlurRect(copy);
-            selectedRect = copy;
+            blurController.setBlurRect(copy);
+            selectedBlurRect = copy;
             invalidate();
         }
     }
 
     // 删除选中矩形
     public void deleteSelectedRect() {
-        if (selectedRect != null) {
-            selectedRect.recycle();
-            blurRectList.remove(selectedRect);
-            selectedRect = null;
+        if (selectedBlurRect != null) {
+            selectedBlurRect.recycle();
+            blurRectList.remove(selectedBlurRect);
+            selectedBlurRect = null;
             invalidate();
         }
     }
@@ -565,12 +569,27 @@ public class BlurOverlayView extends View {
         // 新建矩形
         BlurRect(float left, float top, float right, float bottom) {
             mRect = new RectF(left, top, right, bottom);
+            init();
+        }
+
+        BlurRect(RectF source) {
+            mRect = new RectF(source);
+            init();
         }
 
         // 复制构造
         BlurRect(BlurRect source) {
             mRect = new RectF(source.mRect);
             rotation = source.rotation;
+        }
+
+        void init() {
+            selectionRect.set(
+                    mRect.left - frameMargin,
+                    mRect.top - frameMargin,
+                    mRect.right + frameMargin,
+                    mRect.bottom + frameMargin
+            );
         }
 
         // 更新旋转矩阵
@@ -581,7 +600,7 @@ public class BlurOverlayView extends View {
         }
 
         void updateButtonPositions() {
-            // 计算选中状态边框矩形（比矩形大12dp）
+            // 计算选中状态边框矩形 6dp
             selectionRect.set(
                     mRect.left - frameMargin,
                     mRect.top - frameMargin,
@@ -601,35 +620,74 @@ public class BlurOverlayView extends View {
             float buttonMargin = 22 * density; // 21dp
             if (centerY < screenCenterY) {
                 // 在屏幕上半部分，菜单显示在下方（在矩形边框线下方）
-                buttonsY = selectionRect.bottom + buttonMargin;
+                float menuBottom = selectionRect.bottom + buttonMargin + copyDeleteBtnSize;
+                // 检查是否超出父容器底部
+                if (menuBottom <= getHeight()) {
+                    buttonsY = selectionRect.bottom + buttonMargin; // 显示在下方
+                } else {
+                    buttonsY = getHeight(); // 超出边界，隐藏菜单
+                }
             } else {
                 // 在屏幕下半部分，菜单显示在上方（在矩形边框线上方）
                 buttonsY = selectionRect.top - buttonMargin - copyDeleteBtnSize;
+                if (buttonsY < 0) {
+                    buttonsY = getHeight(); // 超出边界，隐藏菜单
+                }
             }
 
-
             float halfMenuWidth = 104 * density / 2;
-            menuRect.set(mRect.centerX() - halfMenuWidth,
-                    buttonsY,
-                    mRect.centerX() + halfMenuWidth,
-                    buttonsY + 40 * density);
+            if (selectionRect.centerX() - halfMenuWidth <= 0) {
+                menuRect.set(0, buttonsY, halfMenuWidth * 2, buttonsY + 40 * density);
+                // 删除按钮（左侧）
+                deleteButtonRect.set(
+                        halfMenuWidth - copyDeleteBtnSize - 11 * density,
+                        buttonsY + 8 * density,
+                        halfMenuWidth - 11 * density,
+                        buttonsY + copyDeleteBtnSize + 8 * density
+                );
+                // 复制按钮（右侧）
+                copyButtonRect.set(
+                        halfMenuWidth + 11 * density,
+                        buttonsY + 8 * density,
+                        halfMenuWidth + copyDeleteBtnSize + 11 * density,
+                        buttonsY + copyDeleteBtnSize + 8 * density
+                );
+            } else if (borderRect.width() - selectionRect.centerX() <= halfMenuWidth) {
+                menuRect.set(getWidth() - halfMenuWidth * 2, buttonsY, getWidth(), buttonsY + 40 * density);
+                deleteButtonRect.set(
+                        getWidth() - 11 * density - copyDeleteBtnSize - halfMenuWidth,
+                        buttonsY + 8 * density,
+                        getWidth() - 11 * density - halfMenuWidth,
+                        buttonsY + copyDeleteBtnSize + 8 * density
+                );
+                copyButtonRect.set(
+                        getWidth() - 11 * density - copyDeleteBtnSize,
+                        buttonsY + 8 * density,
+                        getWidth() - 11 * density,
+                        buttonsY + copyDeleteBtnSize + 8 * density
+                );
+            } else {
+                menuRect.set(mRect.centerX() - halfMenuWidth,
+                        buttonsY,
+                        mRect.centerX() + halfMenuWidth,
+                        buttonsY + 40 * density);
 
+                // 删除按钮（左侧）
+                deleteButtonRect.set(
+                        mRect.centerX() - copyDeleteBtnSize - 11 * density,
+                        buttonsY + 8 * density,
+                        mRect.centerX() - 11 * density,
+                        buttonsY + copyDeleteBtnSize + 8 * density
+                );
+                // 复制按钮（右侧）
+                copyButtonRect.set(
+                        mRect.centerX() + 11 * density,
+                        buttonsY + 8 * density,
+                        mRect.centerX() + copyDeleteBtnSize + 11 * density,
+                        buttonsY + copyDeleteBtnSize + 8 * density
+                );
+            }
 
-            // 复制按钮（左侧）
-            deleteButtonRect.set(
-                    mRect.centerX() - copyDeleteBtnSize - 11 * density,
-                    buttonsY + 8 * density,
-                    mRect.centerX() - 11 * density,
-                    buttonsY + copyDeleteBtnSize + 8 * density
-            );
-
-            // 删除按钮（右侧）
-            copyButtonRect.set(
-                    mRect.centerX() + 11 * density,
-                    buttonsY + 8 * density,
-                    mRect.centerX() + copyDeleteBtnSize + 11 * density,
-                    buttonsY + copyDeleteBtnSize + 8 * density
-            );
 
             // 右上角旋转手柄
             rotateHandleTopRight.set(
@@ -702,12 +760,6 @@ public class BlurOverlayView extends View {
                 updateButtonPositions();
 
                 // 绘制选中状态边框（比矩形大12dp）
-                selectionRect.set(
-                        mRect.left - frameMargin,
-                        mRect.top - frameMargin,
-                        mRect.right + frameMargin,
-                        mRect.bottom + frameMargin
-                );
                 canvas.drawRect(selectionRect, selectionPaint);
 
                 // 绘制两个旋转手柄（在矩形边框线外侧）
@@ -815,6 +867,9 @@ public class BlurOverlayView extends View {
 
             // 减小检测区域16
             float touchThreshold = 16 * density; // 8dp
+            if (mRect.width() < 64 * density) {
+                touchThreshold = 4 * density;
+            }
 
             // 检查点是否在矩形边框线附近
             return (Math.abs(rotatedX - selectionRect.left) < touchThreshold &&
@@ -880,11 +935,6 @@ public class BlurOverlayView extends View {
             return deleteButtonRect.contains(x, y);
         }
 
-        void move(float dx, float dy, RectF boundary) {
-            // 移动矩形
-            mRect.offset(dx, dy);
-        }
-
         // 初始化调整操作
         void initResizeState(float x, float y) {
             resizeStartX = x;
@@ -940,16 +990,12 @@ public class BlurOverlayView extends View {
                     }
                     break;
             }
-
-            // 确保矩形在边界内
-            constrainToBounds(boundary, rectMin);
         }
 
         /**
          * @param boundary 边界
-         * @param minSize  最小宽高
          */
-        void constrainToBounds(RectF boundary, float minSize) {
+        void constrainToBounds(RectF boundary) {
             // 左边界
             if (mRect.left < boundary.left) {
                 mRect.left = boundary.left;
@@ -966,22 +1012,6 @@ public class BlurOverlayView extends View {
             if (mRect.bottom > boundary.bottom) {
                 mRect.bottom = boundary.bottom;
             }
-
-            // 确保最小尺寸
-            if (mRect.width() < minSize) {
-                if (resizeHandleType == RESIZE_LEFT) {
-                    mRect.left = mRect.right - minSize;
-                } else {
-                    mRect.right = mRect.left + minSize;
-                }
-            }
-            if (mRect.height() < minSize) {
-                if (resizeHandleType == RESIZE_TOP) {
-                    mRect.top = mRect.bottom - minSize;
-                } else {
-                    mRect.bottom = mRect.top + minSize;
-                }
-            }
         }
 
         void setRotation(float angle) {
@@ -990,17 +1020,17 @@ public class BlurOverlayView extends View {
 
         // 检查矩形是否可见（在边界内）
         boolean isVisible(RectF boundary) {
-            return RectF.intersects(mRect, boundary) &&
-                    mRect.width() > 0 &&
-                    mRect.height() > 0;
+            return RectF.intersects(selectionRect, boundary) &&
+                    selectionRect.width() > 0 &&
+                    selectionRect.height() > 0;
         }
 
         // 检查矩形是否完全在边界外
         boolean isOutside(RectF boundary) {
-            return mRect.right < boundary.left ||
-                    mRect.left > boundary.right ||
-                    mRect.bottom < boundary.top ||
-                    mRect.top > boundary.bottom;
+            return mRect.right <= boundary.left ||
+                    mRect.left >= boundary.right ||
+                    mRect.bottom <= boundary.top ||
+                    mRect.top >= boundary.bottom;
         }
 
         public void recycle() {
@@ -1010,4 +1040,31 @@ public class BlurOverlayView extends View {
             }
         }
     }
+
+    public Bitmap createBitmap(Bitmap originalBitmap, RectF regionInView) {
+        if (regionInView.left < 0) {
+            regionInView.left = 0;
+        }
+        if (regionInView.top < 0) {
+            regionInView.top = 0;
+        }
+        if (regionInView.right > originalBitmap.getWidth()) {
+            regionInView.right = originalBitmap.getWidth();
+        }
+        if (regionInView.bottom > originalBitmap.getHeight()) {
+            regionInView.bottom = originalBitmap.getHeight();
+        }
+        if (regionInView.width() <= 0) {
+            return null;
+        }
+        if (regionInView.height() <= 0) {
+            return null;
+        }
+        return Bitmap.createBitmap(
+                originalBitmap,
+                (int) regionInView.left, (int) regionInView.top,
+                (int) regionInView.width(), (int) regionInView.height(), null, true
+        );
+    }
+
 }

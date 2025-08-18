@@ -1,5 +1,8 @@
 package com.eightbitlab.blurview_sample;
 
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.View;
 
@@ -17,7 +20,14 @@ public class ActivityBlurTest extends AppCompatActivity {
         setContentView(binding.getRoot());
         StatusBarsUtil.setEdgeToEdge(binding.getRoot());
 
-        binding.blurOverlayView.setupWith(binding.blurTarget, 20f);
+//        binding.blurOverlayView.setupWith(binding.blurTarget, 20f);
+
+        Drawable drawable = binding.ivImg.getDrawable();
+        if (!(drawable instanceof BitmapDrawable) || (drawable.getIntrinsicWidth() <= 0)) {
+            return;
+        }
+        binding.blurOverlayView.setupWith(binding.blurTarget, 21);
+
 
     }
 }
