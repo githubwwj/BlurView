@@ -418,7 +418,7 @@ public class BlurOverlayView extends View {
                 break;
             case MODE_RESIZE:
                 if (selectedBlurRect != null && selectedBlurRect.isVisible(borderRect)) {
-                    selectedBlurRect.resize(x, y, borderRect);
+                    selectedBlurRect.resize(x, y);
                     invalidate();
                 }
                 break;
@@ -442,11 +442,11 @@ public class BlurOverlayView extends View {
             selectionRect.right = dragRect.right + defaultSize / 2;
             addBlurRect(selectionRect);
         } else if (touchMode == MODE_MOVE || touchMode == MODE_RESIZE) {
-            if (MODE_RESIZE == touchMode) {
-                Log.d("log", "------touchMode=调整大小");
-            } else if (MODE_MOVE == touchMode) {
-                Log.d("log", "------touchMode=移动");
-            }
+//            if (MODE_RESIZE == touchMode) {
+//                Log.d("log", "------touchMode=调整大小");
+//            } else if (MODE_MOVE == touchMode) {
+//                Log.d("log", "------touchMode=移动");
+//            }
             // 检查矩形是否完全移出边界
             if (selectedBlurRect != null && selectedBlurRect.isOutside(borderRect)) {
                 deleteSelectedRect();
@@ -857,14 +857,6 @@ public class BlurOverlayView extends View {
             float rotatedX = point[0];
             float rotatedY = point[1];
 
-            // 计算矩形边框线（比矩形大12dp）
-            selectionRect.set(
-                    mRect.left - frameMargin,
-                    mRect.top - frameMargin,
-                    mRect.right + frameMargin,
-                    mRect.bottom + frameMargin
-            );
-
             // 减小检测区域16
             float touchThreshold = 16 * density; // 8dp
             if (mRect.width() < 64 * density) {
@@ -945,7 +937,7 @@ public class BlurOverlayView extends View {
         }
 
         // 重写的resize方法 - 修复旋转后只调整一边的问题
-        void resize(float x, float y, RectF boundary) {
+        void resize(float x, float y) {
             // 计算在本地坐标系中的增量
             matrix.reset();
             matrix.setRotate(-rotation);

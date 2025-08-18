@@ -138,6 +138,7 @@ public class RenderScriptBlur implements BlurAlgorithm {
     @Override
     public void render(@NonNull Canvas canvas, @NonNull Bitmap bitmap) {
         paint.setAntiAlias(true);
+        paint.setFilterBitmap(true);
         canvas.drawBitmap(bitmap, 0f, 0f, paint);
     }
 
