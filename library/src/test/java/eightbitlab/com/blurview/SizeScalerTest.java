@@ -12,9 +12,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.stream.Stream;
 
-import com.appxy.blurview.SizeScaler;
-import com.appxy.blurview.SizeScaler.Size;
-
 class SizeScalerTest {
     private static final float scalingFactor = 8f;
 
