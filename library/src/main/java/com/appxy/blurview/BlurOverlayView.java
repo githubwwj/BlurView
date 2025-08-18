@@ -622,7 +622,7 @@ public class BlurOverlayView extends View {
                 // 在屏幕上半部分，菜单显示在下方（在矩形边框线下方）
                 float menuBottom = selectionRect.bottom + buttonMargin + copyDeleteBtnSize;
                 // 检查是否超出父容器底部
-                if (menuBottom <= getHeight()) {
+                if (menuBottom + (40 * density - copyDeleteBtnSize) <= getHeight()) {
                     buttonsY = selectionRect.bottom + buttonMargin; // 显示在下方
                 } else {
                     buttonsY = getHeight(); // 超出边界，隐藏菜单

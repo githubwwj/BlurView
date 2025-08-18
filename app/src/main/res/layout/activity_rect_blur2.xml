@@ -53,11 +53,11 @@
 
     </com.appxy.blurview.BlurTarget>
 
-    <com.appxy.blurview.BlurRelativeLayout
-        android:id="@+id/blurRl"
-        android:layout_below="@id/title_rl"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+<!--    <com.appxy.blurview.BlurRelativeLayout-->
+<!--        android:id="@+id/blurRl"-->
+<!--        android:layout_below="@id/title_rl"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="match_parent" />-->
 
 
 </RelativeLayout>
