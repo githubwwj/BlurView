@@ -1,4 +1,4 @@
-//package com.appxy.blurview;
+package com.appxy.blurview;//package com.appxy.blurview;
 //
 //import android.content.Context;
 //import android.graphics.Canvas;

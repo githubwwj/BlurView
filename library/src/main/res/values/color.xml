@@ -2,4 +2,5 @@
 <resources>
     <color name="blurview_stroke">#3A6AFF</color>
     <color name="blurview_menu_divider">#A3A3A3</color>
+    <color name="overlay">#66FFFFFF</color>
 </resources>

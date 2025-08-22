@@ -6,6 +6,8 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
@@ -28,7 +30,7 @@ public class RenderScriptBlur implements BlurAlgorithm {
      * 当位图被缩放时，系统会计算目标像素周围4个源像素的加权平均值
      * 当位图被拉伸、缩小或旋转时，这个标志确保位图边缘平滑，避免出现锯齿状像素块。
      */
-    private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Paint paint = new Paint();
 
     /**
      * 它负责管理RenderScript的资源、内存分配和脚本执行。
@@ -59,6 +61,12 @@ public class RenderScriptBlur implements BlurAlgorithm {
     public RenderScriptBlur(@NonNull Context context) {
         renderScript = RenderScript.create(context);
         blurScript = ScriptIntrinsicBlur.create(renderScript, Element.U8_4(renderScript));
+
+        paint.setAntiAlias(true); // 抗锯齿
+        paint.setFilterBitmap(true); // 双线性过滤，放大缩小时更平滑
+        paint.setDither(true);       // 开启抖动，颜色更自然
+        // SRC_OVER 保证透明通道正确叠加，避免出现灰边
+        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_OVER));
     }
 
     private boolean canReuseAllocation(Bitmap bitmap) {
@@ -137,8 +145,6 @@ public class RenderScriptBlur implements BlurAlgorithm {
 
     @Override
     public void render(@NonNull Canvas canvas, @NonNull Bitmap bitmap) {
-        paint.setAntiAlias(true);
-        paint.setFilterBitmap(true);
         canvas.drawBitmap(bitmap, 0f, 0f, paint);
     }
 

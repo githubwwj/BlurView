@@ -81,7 +81,7 @@ public class BlurOverlayView extends View {
     private Paint resizeDotPaint; // 调整大小手柄画笔
 
     private BlurController blurController = new NoOpController();
-    private int overlayColor = Color.parseColor("#78ffffff");
+    private int overlayColor = 0;
     private boolean blurAutoUpdate = true;
 
     public BlurOverlayView(Context context) {
@@ -109,6 +109,7 @@ public class BlurOverlayView extends View {
         rightRotateIcon = getBitmapFromSvg(R.drawable.blurview_right);
         handleSize = leftRotateIcon.getWidth();
         copyDeleteBtnSize = copyIcon.getWidth();
+        overlayColor = ContextCompat.getColor(getContext(), R.color.overlay);
 
         // 模糊效果
         menuPaint = new Paint();
@@ -354,15 +355,30 @@ public class BlurOverlayView extends View {
         }
 
         // 5. 检查是否点中已有矩形
+        boolean isRemove = false;
         for (int i = blurRectList.size() - 1; i >= 0; i--) {
             BlurRect rect = blurRectList.get(i);
             if (rect.isVisible(borderRect) && rect.contains(x, y)) {
+                if (selectedBlurRect != null && selectedBlurRect != rect) {
+                    isRemove = true;
+                    blurRectList.remove(i);
+                }
                 selectedBlurRect = rect;
                 blurController.setBlurRect(rect);
                 touchMode = MODE_MOVE;
-                invalidate();
-                return;
+                if (!isRemove) {
+                    invalidate();
+                    return;
+                } else {
+                    break;
+                }
             }
+        }
+
+        if (isRemove) {
+            blurRectList.add(selectedBlurRect);
+            invalidate();
+            return;
         }
 
         // 6. 如果没有点中任何矩形，开始添加新矩形
@@ -385,12 +401,22 @@ public class BlurOverlayView extends View {
                 if (selectedBlurRect != null && selectedBlurRect.isVisible(borderRect)) {
                     float centerX = selectedBlurRect.mRect.centerX();
                     float centerY = selectedBlurRect.mRect.centerY();
-                    // 计算当前角度（相对于矩形中心）
+
+                    // 计算当前角度（相对于矩形中心，范围：[-180°, 180°]）
                     float currentAngle = (float) Math.toDegrees(Math.atan2(y - centerY, x - centerX));
+
                     // 计算旋转角度（相对于初始角度）
                     float rotationAngle = currentAngle - selectedBlurRect.startAngle;
-                    // 应用旋转（基于初始旋转角度）
-                    selectedBlurRect.setRotation(selectedBlurRect.startRotation + rotationAngle);
+
+                    // 计算最终旋转角度（可能为负数）
+                    float finalRotation = selectedBlurRect.startRotation + rotationAngle;
+
+                    // 归一化到 0°~360°（去除负数）
+                    finalRotation = (finalRotation % 360 + 360) % 360;
+
+                    // 应用旋转
+                    selectedBlurRect.setRotation(finalRotation);
+
                     invalidate();
                 }
                 break;
@@ -431,7 +457,7 @@ public class BlurOverlayView extends View {
     private void handleTouchUp(float x, float y) {
         if (touchMode == MODE_ADD_BY_DRAG) {
             RectF selectionRect = new RectF(dragRect);
-            addBlurRect(selectionRect);
+            addBlurRect(selectionRect, 0, null);
         } else if (touchMode == MODE_ADD_CLICK) {
             RectF selectionRect = new RectF();
             dragRect.set(x, y, x, y);
@@ -440,7 +466,7 @@ public class BlurOverlayView extends View {
             selectionRect.bottom = dragRect.bottom + defaultSize / 2;
             selectionRect.left = dragRect.left - defaultSize / 2;
             selectionRect.right = dragRect.right + defaultSize / 2;
-            addBlurRect(selectionRect);
+            addBlurRect(selectionRect, 0, null);
         } else if (touchMode == MODE_MOVE || touchMode == MODE_RESIZE) {
 //            if (MODE_RESIZE == touchMode) {
 //                Log.d("log", "------touchMode=调整大小");
@@ -472,9 +498,10 @@ public class BlurOverlayView extends View {
         return false;
     }
 
-    // 添加新模糊矩形
-    public void addBlurRect(RectF selectionRect) {
+    public void addBlurRect(RectF selectionRect, float angle, String signData) {
         BlurRect rect = new BlurRect(selectionRect);
+        rect.setRotation(angle);
+        rect.setSignData(signData);
         blurRectList.add(rect);
         selectedBlurRect = rect;
     }
@@ -515,6 +542,17 @@ public class BlurOverlayView extends View {
         drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
         drawable.draw(canvas);
         return bitmap;
+    }
+
+    public void cancelSelect() {
+        if (null != selectedBlurRect) {
+            selectedBlurRect = null;
+            invalidate();
+        }
+    }
+
+    public List<BlurRect> getBlurRectList() {
+        return blurRectList;
     }
 
     // 模糊矩形类
@@ -565,12 +603,8 @@ public class BlurOverlayView extends View {
         private final Matrix inverseRotationMatrix = new Matrix();
         private final RectF selectionRect = new RectF();
         Bitmap blurBitmap;
+        private String signData;
 
-        // 新建矩形
-        BlurRect(float left, float top, float right, float bottom) {
-            mRect = new RectF(left, top, right, bottom);
-            init();
-        }
 
         BlurRect(RectF source) {
             mRect = new RectF(source);
@@ -581,6 +615,7 @@ public class BlurOverlayView extends View {
         BlurRect(BlurRect source) {
             mRect = new RectF(source.mRect);
             rotation = source.rotation;
+            init();
         }
 
         void init() {
@@ -1007,7 +1042,7 @@ public class BlurOverlayView extends View {
         }
 
         void setRotation(float angle) {
-            rotation = angle;
+            rotation = (float) (Math.round(angle * 100) / 100.0);
         }
 
         // 检查矩形是否可见（在边界内）
@@ -1030,6 +1065,33 @@ public class BlurOverlayView extends View {
                 blurBitmap.recycle();
                 blurBitmap = null;
             }
+        }
+
+        /**
+         * 模糊位图 类型 为6
+         */
+        public int getSignType() {
+            return 6;
+        }
+
+        public Bitmap getBlurBitmap() {
+            return blurBitmap;
+        }
+
+        public RectF getRect() {
+            return new RectF(mRect);
+        }
+
+        public float getRotate() {
+            return rotation;
+        }
+
+        public void setSignData(String signData) {
+            this.signData = signData;
+        }
+
+        public String getSignData() {
+            return signData;
         }
     }
 
