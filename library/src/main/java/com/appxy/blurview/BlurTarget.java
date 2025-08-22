@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.RecordingCanvas;
 import android.graphics.RenderNode;
-import android.os.Build;
 import android.util.AttributeSet;
 import android.widget.FrameLayout;
 
@@ -18,8 +17,8 @@ import androidx.annotation.Nullable;
 public class BlurTarget extends FrameLayout {
     // Need both RenderNode (API 29) and RenderEffect (API 31) to be available for a full hardware rendering pipeline
     // Android 12 开始弃用 RenderScript
-    static final boolean canUseHardwareRendering = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
-//    public static final boolean canUseHardwareRendering = false;
+//    static final boolean canUseHardwareRendering = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
+    public static final boolean canUseHardwareRendering = false;
 
     RenderNode renderNode;
 
