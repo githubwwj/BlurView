@@ -143,7 +143,7 @@ public class BlurOverlayView extends View {
         blurController.destroy();
         if (BlurTarget.canUseHardwareRendering) {
             // Ignores the blur algorithm, always uses RenderEffect
-            blurController = new RenderNodeBlurController(this, target, overlayColor, scaleFactor, blurRadius, applyNoise);
+            blurController = new RenderNodeBlurRectController(this, target, overlayColor, scaleFactor, blurRadius, applyNoise);
         } else {
             blurController = new BlurRectController(this, target, overlayColor, algorithm, scaleFactor, blurRadius, applyNoise);
         }
