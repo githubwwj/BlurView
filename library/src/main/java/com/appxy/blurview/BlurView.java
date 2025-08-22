@@ -95,7 +95,7 @@ public class BlurView extends FrameLayout {
         blurController.destroy();
         if (BlurTarget.canUseHardwareRendering) {
             // Ignores the blur algorithm, always uses RenderEffect
-            blurController = new RenderNodeBlurController(this, target, overlayColor, scaleFactor, blurRadius, applyNoise);
+            blurController = new RenderNodeBlurController(this, target, overlayColor, algorithm, scaleFactor, blurRadius, applyNoise);
         } else {
             blurController = new PreDrawBlurController(this, target, overlayColor, algorithm, scaleFactor, blurRadius, applyNoise);
         }
