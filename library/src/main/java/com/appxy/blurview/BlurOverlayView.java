@@ -457,6 +457,14 @@ public class BlurOverlayView extends View {
     private void handleTouchUp(float x, float y) {
         if (touchMode == MODE_ADD_BY_DRAG) {
             RectF selectionRect = new RectF(dragRect);
+            if (selectionRect.width() < rectMin) {
+                selectionRect.left = selectionRect.left - (rectMin - selectionRect.width()) / 2;
+                selectionRect.right = selectionRect.right + (rectMin - selectionRect.width()) / 2;
+            }
+            if (selectionRect.height() < rectMin) {
+                selectionRect.top = selectionRect.top - (rectMin - selectionRect.height()) / 2;
+                selectionRect.bottom = selectionRect.bottom + (rectMin - selectionRect.height()) / 2;
+            }
             addBlurRect(selectionRect, 0, null);
         } else if (touchMode == MODE_ADD_CLICK) {
             RectF selectionRect = new RectF();
