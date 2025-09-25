@@ -26,7 +26,7 @@ public class ActivityBlurTest extends AppCompatActivity {
         if (!(drawable instanceof BitmapDrawable) || (drawable.getIntrinsicWidth() <= 0)) {
             return;
         }
-        binding.blurOverlayView.setupWith(binding.blurTarget, 21);
+        binding.blurOverlayView.setupWith(binding.blurTarget, 24);
 
 
     }
