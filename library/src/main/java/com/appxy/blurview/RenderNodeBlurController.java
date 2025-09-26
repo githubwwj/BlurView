@@ -25,7 +25,7 @@ public class RenderNodeBlurController implements BlurController {
     private final int[] blurViewLocation = new int[2];
 
     private final View blurView;
-    private final BlurTarget target;
+    private final View target;
     private final RenderNode blurNode = new RenderNode("BlurView node");
     private final float scaleFactor;
     private final boolean applyNoise;
@@ -48,7 +48,7 @@ public class RenderNodeBlurController implements BlurController {
         return true;
     };
 
-    public RenderNodeBlurController(@NonNull View blurView, @NonNull BlurTarget target, int overlayColor,
+    public RenderNodeBlurController(@NonNull View blurView, @NonNull View target, int overlayColor,
                                     float scaleFactor, float blurRadius, boolean applyNoise) {
         this.blurView = blurView;
         this.target = target;
@@ -89,7 +89,13 @@ public class RenderNodeBlurController implements BlurController {
         blurNode.setPosition(0, 0, target.getWidth(), target.getHeight());
         updateRenderNodeProperties();
 
-        drawSnapshot();
+        RecordingCanvas recordingCanvas = blurNode.beginRecording();
+        if (frameClearDrawable != null) {
+            frameClearDrawable.draw(recordingCanvas);
+        }
+        canvas.drawRenderNode(blurNode);
+        blurNode.endRecording();
+        applyBlur();
 
         // Draw on the system canvas
         canvas.drawRenderNode(blurNode);
@@ -112,16 +118,6 @@ public class RenderNodeBlurController implements BlurController {
         blurNode.setTranslationY(layoutTranslationY);
     }
 
-    private void drawSnapshot() {
-        RecordingCanvas recordingCanvas = blurNode.beginRecording();
-        if (frameClearDrawable != null) {
-            frameClearDrawable.draw(recordingCanvas);
-        }
-        recordingCanvas.drawRenderNode(target.renderNode);
-        // Looks like the order of this doesn't matter
-        applyBlur();
-        blurNode.endRecording();
-    }
 
     private void softwarePath(Canvas canvas) {
         SizeScaler sizeScaler = new SizeScaler(scaleFactor);

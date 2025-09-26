@@ -8,8 +8,10 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.View;
 import android.widget.FrameLayout;
 
 import androidx.annotation.ColorInt;
@@ -90,7 +92,7 @@ public class BlurView extends FrameLayout {
      * @param applyNoise  optional blue noise texture over the blurred content to make it look more natural. True by default.
      * @return {@link BlurView} to setup needed params.
      */
-    public BlurViewFacade setupWith(@NonNull BlurTarget target, BlurAlgorithm algorithm, float scaleFactor,
+    public BlurViewFacade setupWith(@NonNull View target, BlurAlgorithm algorithm, float scaleFactor,
                                     float blurRadius, boolean applyNoise) {
         blurController.destroy();
         if (BlurTarget.canUseHardwareRendering) {
@@ -102,16 +104,21 @@ public class BlurView extends FrameLayout {
         return blurController;
     }
 
-    public BlurViewFacade setupWith(@NonNull BlurTarget rootView, float scaleFactor, float blurRadius, boolean applyNoise) {
-        BlurAlgorithm algorithm = new RenderScriptBlur(getContext());
+    public BlurViewFacade setupWith(@NonNull View rootView, float scaleFactor, float blurRadius, boolean applyNoise) {
+        BlurAlgorithm algorithm;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            algorithm = new RenderEffectBlur(getContext());
+        } else {
+            algorithm = new RenderScriptBlur(getContext());
+        }
         return setupWith(rootView, algorithm, scaleFactor, blurRadius, applyNoise);
     }
 
-    public BlurViewFacade setupWith(@NonNull BlurTarget rootView, float blurRadius) {
+    public BlurViewFacade setupWith(@NonNull View rootView, float blurRadius) {
         return setupWith(rootView, DEFAULT_SCALE_FACTOR, blurRadius, false);
     }
 
-    public BlurViewFacade setupWith(@NonNull BlurTarget rootView) {
+    public BlurViewFacade setupWith(@NonNull View rootView) {
         return setupWith(rootView, DEFAULT_BLUR_RADIUS);
     }
 

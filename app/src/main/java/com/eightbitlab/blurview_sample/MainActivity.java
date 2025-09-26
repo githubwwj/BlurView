@@ -50,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
 
             return windowInsets;
         });
-        startActivity(new Intent(this, ActivityBlurTest.class));
+        startActivity(new Intent(this, ActivityBlurTest3.class));
         finish();
     }
 

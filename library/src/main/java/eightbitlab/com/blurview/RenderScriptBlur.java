@@ -1,17 +1,19 @@
-package com.appxy.blurview;
+package eightbitlab.com.blurview;
 
-import static com.appxy.blurview.BlurController.DEFAULT_SCALE_FACTOR;
+import static eightbitlab.com.blurview.BlurController.DEFAULT_SCALE_FACTOR;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.os.Build;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
 import android.renderscript.RenderScript;
 import android.renderscript.ScriptIntrinsicBlur;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 /**
  * Blur using RenderScript, processed on GPU when device drivers support it.
@@ -20,6 +22,7 @@ import androidx.annotation.NonNull;
  * @deprecated because RenderScript is deprecated and its hardware acceleration is not guaranteed.
  * RenderEffectBlur is the best alternative at the moment.
  */
+@Deprecated
 public class RenderScriptBlur implements BlurAlgorithm {
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private final RenderScript renderScript;
@@ -35,6 +38,8 @@ public class RenderScriptBlur implements BlurAlgorithm {
     public RenderScriptBlur(@NonNull Context context) {
         renderScript = RenderScript.create(context);
         blurScript = ScriptIntrinsicBlur.create(renderScript, Element.U8_4(renderScript));
+        paint.setAntiAlias(true);
+        paint.setDither(true);
     }
 
     private boolean canReuseAllocation(@NonNull Bitmap bitmap) {
@@ -90,6 +95,7 @@ public class RenderScriptBlur implements BlurAlgorithm {
         return Bitmap.Config.ARGB_8888;
     }
 
+    @Override
     public float scaleFactor() {
         return DEFAULT_SCALE_FACTOR;
     }

@@ -67,7 +67,7 @@ public final class PreDrawBlurController implements BlurController {
     /**
      * 根视图，模糊内容从该视图开始绘制
      */
-    private final ViewGroup rootView;
+    private final View rootView;
 
     /**
      * 存储根视图在屏幕上的位置
@@ -124,7 +124,7 @@ public final class PreDrawBlurController implements BlurController {
      * @param applyNoise  optional blue noise texture over the blurred content to make it look more natural. True by default.
      */
     public PreDrawBlurController(@NonNull View blurView,
-                                 @NonNull ViewGroup rootView,
+                                 @NonNull View rootView,
                                  @ColorInt int overlayColor,
                                  BlurAlgorithm algorithm,
                                  float scaleFactor,
@@ -174,8 +174,6 @@ public final class PreDrawBlurController implements BlurController {
             internalBitmap = Bitmap.createBitmap(newBitmapSize.width, newBitmapSize.height, blurAlgorithm.getSupportedBitmapConfig());
             // 创建画布
             internalCanvas = new BlurViewCanvas(internalBitmap);
-            // 更新画布使用的位图
-            internalCanvas.setBitmap(internalBitmap);
         }
         Log.d(TAG, "-----imageWidth=" + internalBitmap.getWidth() + ",imageHeight=" + internalBitmap.getHeight());
 
